@@ -1,0 +1,8 @@
+<svg width="220" height="64" viewBox="0 0 220 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="18" fill="#10131B"/>
+  <path d="M15 18L30.5 47C31.1 48.1 32.9 48.1 33.5 47L49 18" stroke="url(#a)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M20 18L32 40L44 18" stroke="white" stroke-opacity=".85" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="32" cy="47" r="4" fill="#B8FF65"/>
+  <path d="M82 20L94 48H101L113 20H105L97.5 40L90 20H82ZM117 48H139V42H124V36H137V30H124V26H139V20H117V48ZM145 48H152V38H157L164 48H172L164 36C168 34 170 31 170 28C170 23 166 20 159 20H145V48ZM152 32V26H158C161 26 163 27 163 29C163 31 161 32 158 32H152ZM184 48H191V38L202 20H194L187.5 31L181 20H173L184 38V48ZM202 48H210L198 20H191L179 48H187L189 43H200L202 48ZM191 37L194.5 28L198 37H191Z" fill="white"/>
+  <defs><linearGradient id="a" x1="15" y1="18" x2="49" y2="47" gradientUnits="userSpaceOnUse"><stop stop-color="#7C5CFF"/><stop offset="1" stop-color="#42D3FF"/></linearGradient></defs>
+</svg>

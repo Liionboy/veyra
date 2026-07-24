@@ -1,0 +1,33 @@
+{
+  "name": "veyra",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Private file sharing, beautifully self-hosted.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Liionboy/veyra.git"
+  },
+  "homepage": "https://github.com/Liionboy/veyra#readme",
+  "bugs": {
+    "url": "https://github.com/Liionboy/veyra/issues"
+  },
+  "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently --kill-others --names web,server \"npm run dev --workspace @veyra/web\" \"npm run dev --workspace @veyra/server\"",
+    "build": "npm run build --workspace @veyra/web && npm run build --workspace @veyra/server",
+    "start": "npm run start --workspace @veyra/server",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "check": "npm run typecheck && npm run test && npm run build"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
