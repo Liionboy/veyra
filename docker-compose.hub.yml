@@ -1,0 +1,48 @@
+# Pre-built Docker Hub image; no source checkout or local build is required.
+# Usage: docker compose -f docker-compose.hub.yml up -d
+
+services:
+  veyra:
+    image: adrianbrisca/veyra:1.0.0
+    container_name: veyra
+    restart: unless-stopped
+    init: true
+    pids_limit: 256
+    ports:
+      - "${VEYRA_PORT:-8080}:8080"
+    environment:
+      NODE_ENV: production
+      VEYRA_SECRET_FILE: /run/secrets/veyra_secret
+      VEYRA_IP_SALT_FILE: /run/secrets/veyra_ip_salt
+      VEYRA_BASE_URL: "${VEYRA_BASE_URL:-http://localhost:8080}"
+      VEYRA_SECURE_COOKIES: "${VEYRA_SECURE_COOKIES:-false}"
+      VEYRA_TRUST_PROXY: "${VEYRA_TRUST_PROXY:-false}"
+      VEYRA_MAX_FILE_SIZE: "${VEYRA_MAX_FILE_SIZE:-10737418240}"
+      VEYRA_MAX_SHARE_SIZE: "${VEYRA_MAX_SHARE_SIZE:-53687091200}"
+      VEYRA_DEFAULT_USER_QUOTA: "${VEYRA_DEFAULT_USER_QUOTA:-107374182400}"
+      VEYRA_INSTANCE_QUOTA: "${VEYRA_INSTANCE_QUOTA:-0}"
+      VEYRA_MIN_FREE_BYTES: "${VEYRA_MIN_FREE_BYTES:-5368709120}"
+      VEYRA_MAX_FILES_PER_SHARE: "${VEYRA_MAX_FILES_PER_SHARE:-500}"
+      VEYRA_UPLOAD_CHUNK_SIZE: "${VEYRA_UPLOAD_CHUNK_SIZE:-8388608}"
+      VEYRA_UPLOAD_SESSION_HOURS: "${VEYRA_UPLOAD_SESSION_HOURS:-24}"
+    volumes:
+      - veyra-data:/data
+    secrets:
+      - veyra_secret
+      - veyra_ip_salt
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  veyra-data:
+
+secrets:
+  veyra_secret:
+    file: .secrets/veyra_secret
+  veyra_ip_salt:
+    file: .secrets/veyra_ip_salt

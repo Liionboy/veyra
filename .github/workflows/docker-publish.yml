@@ -1,0 +1,304 @@
+name: Publish Docker image
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing stable release tag to publish
+        required: true
+        default: v1.0.0
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dockerhub-publish
+  cancel-in-progress: false
+
+env:
+  IMAGE: docker.io/adrianbrisca/veyra
+
+jobs:
+  publish:
+    name: Build, scan, and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Resolve stable release
+        id: input
+        shell: bash
+        env:
+          CANDIDATE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.release.tag_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          tag="${CANDIDATE_TAG}"
+          if [[ ! "${tag}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Only stable vMAJOR.MINOR.PATCH releases can be published." >&2
+            exit 1
+          fi
+
+          release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}")"
+          if [[ "$(jq -r '.draft' <<<"${release_json}")" != "false" ]] ||
+             [[ "$(jq -r '.prerelease' <<<"${release_json}")" != "false" ]]; then
+            echo "Drafts and prereleases cannot be published as stable images." >&2
+            exit 1
+          fi
+
+          latest_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
+          if [[ "${tag}" != "${latest_tag}" ]]; then
+            echo "${tag} is not the latest stable GitHub release (${latest_tag})." >&2
+            exit 1
+          fi
+
+          {
+            echo "tag=${tag}"
+            echo "version=${tag#v}"
+          } >>"${GITHUB_OUTPUT}"
+
+      - name: Check out release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ steps.input.outputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify release source
+        id: release
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.input.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.input.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          git fetch --force --no-tags origin \
+            "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+          git fetch --force --no-tags origin \
+            "refs/heads/main:refs/remotes/origin/main"
+
+          commit="$(git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}")"
+          if [[ "$(git rev-parse HEAD)" != "${commit}" ]]; then
+            echo "The checkout does not match ${RELEASE_TAG}." >&2
+            exit 1
+          fi
+
+          if ! git merge-base --is-ancestor "${commit}" refs/remotes/origin/main; then
+            echo "${RELEASE_TAG} is not contained in main." >&2
+            exit 1
+          fi
+
+          package_version="$(
+            node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version"
+          )"
+          if [[ "${package_version}" != "${RELEASE_VERSION}" ]]; then
+            echo "package.json is ${package_version}, expected ${RELEASE_VERSION}." >&2
+            exit 1
+          fi
+
+          {
+            echo "commit=${commit}"
+            echo "short_sha=${commit:0:7}"
+          } >>"${GITHUB_OUTPUT}"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run release checks
+        run: npm run check
+
+      - name: Audit production and development dependencies
+        run: npm audit --audit-level=high
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          context: git
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.input.outputs.tag }}
+            type=raw,value=latest
+            type=sha,prefix=
+          labels: |
+            org.opencontainers.image.version=${{ steps.input.outputs.version }}
+            org.opencontainers.image.revision=${{ steps.release.outputs.commit }}
+            org.opencontainers.image.source=https://github.com/Liionboy/veyra
+            org.opencontainers.image.licenses=MIT
+        env:
+          DOCKER_METADATA_SHORT_SHA_LENGTH: 7
+
+      - name: Build release image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          platforms: linux/amd64
+          pull: true
+          no-cache: true
+          push: false
+          load: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VEYRA_VERSION=${{ steps.input.outputs.version }}
+            VEYRA_SOURCE=https://github.com/Liionboy/veyra
+
+      - name: Scan release image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ steps.input.outputs.version }}
+          format: table
+          exit-code: 1
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+
+      - name: Smoke-test release image
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.input.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          container="veyra-release-smoke"
+          cleanup() {
+            docker rm -f "${container}" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker run --detach \
+            --name "${container}" \
+            --init \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
+            --tmpfs /data:rw,nosuid,nodev,size=256m,uid=1000,gid=1000,mode=0700 \
+            --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --pids-limit 256 \
+            --env NODE_ENV=production \
+            --env VEYRA_SECRET="$(openssl rand -hex 32)" \
+            --env VEYRA_IP_SALT="$(openssl rand -hex 16)" \
+            --publish 127.0.0.1:18080:8080 \
+            "${IMAGE}:${RELEASE_VERSION}"
+
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error \
+              http://127.0.0.1:18080/api/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs "${container}"
+          exit 1
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push scanned image tags
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.input.outputs.version }}
+          RELEASE_SHA: ${{ steps.release.outputs.short_sha }}
+        run: |
+          set -euo pipefail
+
+          docker image inspect "${IMAGE}:${RELEASE_VERSION}" >/dev/null
+          docker image inspect "${IMAGE}:${RELEASE_SHA}" >/dev/null
+          docker image inspect "${IMAGE}:latest" >/dev/null
+
+          docker push "${IMAGE}:${RELEASE_VERSION}"
+          docker push "${IMAGE}:${RELEASE_SHA}"
+          docker push "${IMAGE}:latest"
+
+      - name: Verify Docker Hub tags and pulled image
+        id: published
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.input.outputs.version }}
+          RELEASE_SHA: ${{ steps.release.outputs.short_sha }}
+        run: |
+          set -euo pipefail
+
+          get_digest() {
+            docker buildx imagetools inspect "$1" |
+              awk '$1 == "Digest:" { print $2; exit }'
+          }
+
+          version_digest="$(get_digest "${IMAGE}:${RELEASE_VERSION}")"
+          sha_digest="$(get_digest "${IMAGE}:${RELEASE_SHA}")"
+          latest_digest="$(get_digest "${IMAGE}:latest")"
+
+          if [[ -z "${version_digest}" ]] ||
+             [[ "${version_digest}" != "${sha_digest}" ]] ||
+             [[ "${version_digest}" != "${latest_digest}" ]]; then
+            echo "Published Docker Hub tags do not resolve to one digest." >&2
+            exit 1
+          fi
+
+          docker image rm \
+            "${IMAGE}:${RELEASE_VERSION}" \
+            "${IMAGE}:${RELEASE_SHA}" \
+            "${IMAGE}:latest" >/dev/null
+          docker pull "${IMAGE}:${RELEASE_VERSION}"
+
+          container="veyra-published-smoke"
+          cleanup() {
+            docker rm -f "${container}" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker run --detach \
+            --name "${container}" \
+            --init \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
+            --tmpfs /data:rw,nosuid,nodev,size=256m,uid=1000,gid=1000,mode=0700 \
+            --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --pids-limit 256 \
+            --env NODE_ENV=production \
+            --env VEYRA_SECRET="$(openssl rand -hex 32)" \
+            --env VEYRA_IP_SALT="$(openssl rand -hex 16)" \
+            --publish 127.0.0.1:18080:8080 \
+            "${IMAGE}:${RELEASE_VERSION}"
+
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error \
+              http://127.0.0.1:18080/api/health >/dev/null; then
+              echo "digest=${version_digest}" >>"${GITHUB_OUTPUT}"
+              {
+                echo "### Published Docker image"
+                echo
+                echo "- Image: \`${IMAGE}:${RELEASE_VERSION}\`"
+                echo "- Commit tag: \`${IMAGE}:${RELEASE_SHA}\`"
+                echo "- Digest: \`${version_digest}\`"
+              } >>"${GITHUB_STEP_SUMMARY}"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs "${container}"
+          exit 1
+
+      - name: Log out from Docker Hub
+        if: always()
+        run: docker logout docker.io || true

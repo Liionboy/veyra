@@ -9,6 +9,7 @@
 <p align="center">
   <a href="https://github.com/Liionboy/veyra/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Liionboy/veyra/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/Liionboy/veyra/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/Liionboy/veyra"></a>
+  <a href="https://hub.docker.com/r/adrianbrisca/veyra"><img alt="Docker Hub" src="https://img.shields.io/docker/v/adrianbrisca/veyra?sort=semver&label=Docker%20Hub"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-7c5cff"></a>
   <img alt="Node.js 22+" src="https://img.shields.io/badge/Node.js-22%2B-5fa04e">
 </p>
@@ -77,36 +78,65 @@ copied from either project.
 Requirements:
 
 - Docker Engine with Compose v2
+- OpenSSL
 - Approximately 512 MB available RAM for Veyra itself
 - A persistent volume sized for the files you intend to retain
 
-Clone the repository and generate independent secrets:
+### Docker Hub image (recommended)
+
+```bash
+mkdir veyra
+cd veyra
+
+curl -fsSLO https://raw.githubusercontent.com/Liionboy/veyra/main/docker-compose.hub.yml
+curl -fsSL https://raw.githubusercontent.com/Liionboy/veyra/main/.env.example -o .env
+
+mkdir -p .secrets
+chmod 700 .secrets
+openssl rand -base64 -out .secrets/veyra_secret 48
+openssl rand -base64 -out .secrets/veyra_ip_salt 32
+chmod 644 .secrets/veyra_secret .secrets/veyra_ip_salt
+
+docker compose -f docker-compose.hub.yml pull
+docker compose -f docker-compose.hub.yml up -d
+```
+
+The private `0700` directory protects the secret files on the host. Their
+`0644` mode lets the image's non-root user read Docker Compose file-backed
+secrets regardless of the host user's numeric ID.
+
+Open <http://localhost:8080> and create the first administrator account.
+Application data is retained in the `veyra-data` Docker volume.
+
+Keep both secret files unchanged for the lifetime of the instance. Back up the
+`.secrets` directory together with the data volume.
+
+Useful commands:
+
+```bash
+docker compose -f docker-compose.hub.yml ps
+docker compose -f docker-compose.hub.yml logs -f veyra
+docker compose -f docker-compose.hub.yml pull
+docker compose -f docker-compose.hub.yml up -d
+```
+
+### Build from source
+
+Clone the repository, generate the same two secret files shown above, then
+build locally:
 
 ```bash
 git clone https://github.com/Liionboy/veyra.git
 cd veyra
 cp .env.example .env
 mkdir -p .secrets
+chmod 700 .secrets
 openssl rand -base64 -out .secrets/veyra_secret 48
 openssl rand -base64 -out .secrets/veyra_ip_salt 32
-chmod 600 .secrets/veyra_secret .secrets/veyra_ip_salt
-```
-
-Start Veyra:
-
-```bash
+chmod 644 .secrets/veyra_secret .secrets/veyra_ip_salt
 docker compose up --build -d
-```
-
-Open <http://localhost:8080> and create the first administrator account.
-Application data is retained in the `veyra-data` Docker volume.
-
-Useful commands:
-
-```bash
 docker compose ps
 docker compose logs -f veyra
-docker compose up -d --build
 ```
 
 ## Reverse proxy and HTTPS
@@ -276,6 +306,19 @@ one application replica are deliberate operational boundaries in v1.0.
 - [Roadmap](ROADMAP.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Docker Hub description](DOCKERHUB.md)
+
+## Docker image
+
+Stable images are published at
+[adrianbrisca/veyra](https://hub.docker.com/r/adrianbrisca/veyra).
+
+- `1.0.0` — release tag
+- `latest` — newest stable release
+- Seven-character commit SHA — immutable source reference
+
+The initial release supports `linux/amd64`. Veyra is a single-node
+application; do not scale multiple containers against the same `/data` volume.
 
 ## License
 
