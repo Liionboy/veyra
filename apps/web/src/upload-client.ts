@@ -208,10 +208,19 @@ export async function uploadResumably<T>(options: {
   session: UploadSessionResponse;
   apiRoot: string;
   completePath: string;
+  completePayload?: Record<string, unknown>;
   signal: AbortSignal;
   onProgress: (progress: UploadProgress) => void;
 }): Promise<T> {
-  const { files, session, apiRoot, completePath, signal, onProgress } = options;
+  const {
+    files,
+    session,
+    apiRoot,
+    completePath,
+    completePayload,
+    signal,
+    onProgress,
+  } = options;
   if (files.length !== session.files.length) {
     throw new Error("The selected files do not match the upload session.");
   }
@@ -294,7 +303,7 @@ export async function uploadResumably<T>(options: {
   report("scanning");
   const result = await requestJson<T>(
     completePath,
-    { method: "POST", body: "{}" },
+    { method: "POST", body: JSON.stringify(completePayload ?? {}) },
     session.uploadToken,
   );
   report("finalizing");

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
+import type { ShareEmailDetails } from "./email.js";
 
 const directory = mkdtempSync(join(tmpdir(), "veyra-app-"));
 process.env.NODE_ENV = "test";
@@ -26,7 +27,18 @@ function cookieValue(header: string | string[] | undefined): string {
 }
 
 test("resumable shares, preview, ZIP, reverse inbox, and admin privacy work end to end", async () => {
-  const app = buildApp();
+  const deliveredShareEmails: Array<{
+    recipient: string;
+    share: ShareEmailDetails;
+  }> = [];
+  const app = buildApp({
+    sendShareEmail: async (_settings, recipient, shareDetails) => {
+      deliveredShareEmails.push({
+        recipient,
+        share: { ...shareDetails },
+      });
+    },
+  });
   await app.ready();
   try {
     const setup = await app.inject({
@@ -286,6 +298,157 @@ test("resumable shares, preview, ZIP, reverse inbox, and admin privacy work end 
     assert.ok(receivedSubmission);
     assert.equal(receivedSubmission.files[0]?.name, "private.txt");
 
+    const saveEmailSettings = await app.inject({
+      method: "PUT",
+      url: "/api/v1/admin/email",
+      headers: authenticated,
+      payload: {
+        host: "smtp.example.test",
+        port: 587,
+        secure: false,
+        user: "",
+        password: "",
+        fromName: "Veyra",
+        fromAddress: "veyra@example.test",
+      },
+    });
+    assert.equal(
+      saveEmailSettings.statusCode,
+      200,
+      saveEmailSettings.body,
+    );
+
+    const protectedPassword = `Safe<&>"' passphrase`;
+    const protectedCreate = await app.inject({
+      method: "POST",
+      url: "/api/v1/uploads",
+      headers: authenticated,
+      payload: {
+        files: [
+          {
+            name: "protected.txt",
+            relativePath: "protected.txt",
+            type: "text/plain",
+            size: 6,
+          },
+        ],
+        options: {
+          expiresInHours: 24,
+          maxDownloads: null,
+          password: protectedPassword,
+          recipientEmail: "recipient@example.test",
+          title: "Protected delivery",
+        },
+      },
+    });
+    assert.equal(protectedCreate.statusCode, 201, protectedCreate.body);
+    const protectedUpload = protectedCreate.json<{
+      id: string;
+      files: Array<{ id: string }>;
+    }>();
+    const protectedChunk = await app.inject({
+      method: "PATCH",
+      url: `/api/v1/uploads/${protectedUpload.id}/files/${protectedUpload.files[0]!.id}`,
+      headers: {
+        ...authenticated,
+        "content-type": "application/offset+octet-stream",
+        "upload-offset": "0",
+        "content-length": "6",
+      },
+      payload: Buffer.from("secret"),
+    });
+    assert.equal(protectedChunk.statusCode, 204, protectedChunk.body);
+
+    const pendingDatabase = new DatabaseSync(join(directory, "veyra.db"), {
+      readOnly: true,
+    });
+    const pendingUpload = pendingDatabase
+      .prepare(
+        "SELECT share_id, options_json FROM upload_sessions WHERE id = ?",
+      )
+      .get(protectedUpload.id) as {
+      share_id: string;
+      options_json: string;
+    };
+    pendingDatabase.close();
+    assert.equal(pendingUpload.options_json.includes(protectedPassword), false);
+
+    const wrongPasswordCompletion = await app.inject({
+      method: "POST",
+      url: `/api/v1/uploads/${protectedUpload.id}/complete`,
+      headers: authenticated,
+      payload: {
+        includePasswordInEmail: true,
+        password: "incorrect password",
+      },
+    });
+    assert.equal(
+      wrongPasswordCompletion.statusCode,
+      400,
+      wrongPasswordCompletion.body,
+    );
+    assert.equal(deliveredShareEmails.length, 0);
+
+    const protectedComplete = await app.inject({
+      method: "POST",
+      url: `/api/v1/uploads/${protectedUpload.id}/complete`,
+      headers: authenticated,
+      payload: {
+        includePasswordInEmail: true,
+        password: protectedPassword,
+      },
+    });
+    assert.equal(protectedComplete.statusCode, 200, protectedComplete.body);
+    assert.equal(
+      protectedComplete.json<{
+        emailSent: boolean;
+        passwordIncludedInEmail: boolean;
+      }>().emailSent,
+      true,
+    );
+    assert.equal(
+      protectedComplete.json<{
+        passwordIncludedInEmail: boolean;
+      }>().passwordIncludedInEmail,
+      true,
+    );
+    assert.equal(protectedComplete.body.includes(protectedPassword), false);
+    assert.equal(deliveredShareEmails.length, 1);
+    assert.equal(
+      deliveredShareEmails[0]?.recipient,
+      "recipient@example.test",
+    );
+    assert.equal(
+      deliveredShareEmails[0]?.share.password,
+      protectedPassword,
+    );
+
+    const protectedRetry = await app.inject({
+      method: "POST",
+      url: `/api/v1/uploads/${protectedUpload.id}/complete`,
+      headers: authenticated,
+      payload: {
+        includePasswordInEmail: true,
+        password: protectedPassword,
+      },
+    });
+    assert.equal(protectedRetry.statusCode, 200, protectedRetry.body);
+    assert.equal(
+      protectedRetry.json<{ passwordIncludedInEmail: boolean }>()
+        .passwordIncludedInEmail,
+      false,
+    );
+    assert.equal(deliveredShareEmails.length, 1);
+
+    const resend = await app.inject({
+      method: "POST",
+      url: `/api/v1/me/shares/${pendingUpload.share_id}/send-email`,
+      headers: authenticated,
+    });
+    assert.equal(resend.statusCode, 200, resend.body);
+    assert.equal(deliveredShareEmails.length, 2);
+    assert.equal(deliveredShareEmails[1]?.share.password, undefined);
+
     const global = await app.inject({
       method: "GET",
       url: "/api/v1/admin/global-shares",
@@ -307,7 +470,7 @@ test("resumable shares, preview, ZIP, reverse inbox, and admin privacy work end 
           )
           .get() as { count: number }
       ).count,
-      1,
+      2,
     );
     assert.equal(
       (

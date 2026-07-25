@@ -39,6 +39,9 @@ copied from either project.
 - Live percentage, transfer speed, and estimated time remaining
 - Share title, description, recipient email, password, expiry, and download
   limit
+- Cryptographically secure password generator with one-click copy and an
+  explicit, less-secure option to include the password in the first recipient
+  email
 - Direct file links, QR codes, safe previews, and streamed **Download all**
   ZIP archives
 - Reverse shares: expiring links through which external people can deliver
@@ -193,6 +196,13 @@ Configure SMTP under **Settings → Outgoing email**. Veyra supports implicit TL
 (usually port 465) or required STARTTLS (usually port 587). The SMTP password is
 encrypted at rest using the instance secret.
 
+Share passwords remain hash-only in Veyra. If a sender explicitly chooses to
+include one in the recipient email, the browser supplies it only while the
+upload is finalized; Veyra verifies it against the stored hash, sends it in that
+first email, and does not retain a recoverable copy. Manual email retries always
+send only the share link. Sending the link and password through separate
+channels remains the recommended option.
+
 ### ClamAV
 
 Veyra connects to an external `clamd` endpoint and streams each staged file
@@ -313,7 +323,7 @@ one application replica are deliberate operational boundaries in v1.0.
 Stable images are published at
 [adrianbrisca/veyra](https://hub.docker.com/r/adrianbrisca/veyra).
 
-- `1.0.0` — release tag
+- `1.1.0` — release tag
 - `latest` — newest stable release
 - Seven-character commit SHA — immutable source reference
 

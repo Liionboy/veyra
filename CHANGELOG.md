@@ -5,6 +5,25 @@ All notable changes to Veyra are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-07-25
+
+### Added
+
+- Cryptographically secure share-password generator with one-click copy
+- Explicit, disabled-by-default option to include a share password in the
+  initial recipient email
+- Success-screen password copy while the value remains available in the
+  current browser tab
+
+### Security
+
+- Share passwords remain hash-only at rest; an email password is submitted
+  only during finalization, verified against the stored `scrypt` hash, and
+  never retained in recoverable form
+- Manual email retries remain link-only, and password-bearing email content is
+  HTML-escaped and excluded from subjects, URLs, responses, storage, and audit
+  events
+
 ## [1.0.0] - 2026-07-25
 
 ### Added
@@ -34,4 +53,5 @@ and the project follows [Semantic Versioning](https://semver.org/).
 - Path normalization, opaque object keys, ZIP traversal prevention, CSP,
   rate limits, and privacy-preserving audit events
 
+[1.1.0]: https://github.com/Liionboy/veyra/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Liionboy/veyra/releases/tag/v1.0.0

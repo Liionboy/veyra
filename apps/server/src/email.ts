@@ -10,6 +10,20 @@ export interface EmailSettings {
   fromAddress: string;
 }
 
+export interface ShareEmailDetails {
+  title: string | null;
+  description: string | null;
+  url: string;
+  expiresAt: string | null;
+  password?: string | null;
+}
+
+export interface ShareEmailContent {
+  subject: string;
+  text: string;
+  html: string;
+}
+
 function transportFor(settings: EmailSettings) {
   return nodemailer.createTransport({
     host: settings.host,
@@ -101,16 +115,7 @@ export async function sendTestEmail(
   });
 }
 
-export async function sendShareEmail(
-  settings: EmailSettings,
-  recipient: string,
-  share: {
-    title: string | null;
-    description: string | null;
-    url: string;
-    expiresAt: string | null;
-  },
-): Promise<void> {
+export function buildShareEmail(share: ShareEmailDetails): ShareEmailContent {
   const title = (share.title || "Files shared with you").replace(
     /[\r\n]+/g,
     " ",
@@ -123,10 +128,24 @@ export async function sendShareEmail(
       })} UTC.`
     : "This link does not expire automatically.";
   const description = share.description?.trim() || "";
+  const passwordText = share.password
+    ? [
+        "Share password (included at the sender's request):",
+        share.password,
+        "Security note: this email contains both the share link and its password.",
+      ]
+    : ["The link may require a password supplied separately by the sender."];
+  const passwordHtml = share.password
+    ? `
+        <div style="margin:18px 0;padding:14px 16px;border-radius:10px;background:#f4f1ff">
+          <p style="margin:0 0 7px;color:#454b59;font-size:13px">Share password (included at the sender's request)</p>
+          <code style="font-size:16px;font-weight:700;word-break:break-all;color:#171923">${escapeHtml(share.password)}</code>
+        </div>
+        <p style="color:#8a5a00;font-size:13px">Security note: this email contains both the share link and its password.</p>
+      `
+    : '<p style="color:#687083;font-size:13px">The link may require a password supplied separately by the sender.</p>';
 
-  await transportFor(settings).sendMail({
-    from: { name: settings.fromName, address: settings.fromAddress },
-    to: recipient,
+  return {
     subject: `${title} · Veyra`,
     text: [
       title,
@@ -134,7 +153,7 @@ export async function sendShareEmail(
       "Open the secure share:",
       share.url,
       expiry,
-      "The link may require a password supplied separately by the sender.",
+      ...passwordText,
     ]
       .filter(Boolean)
       .join("\n\n"),
@@ -144,9 +163,22 @@ export async function sendShareEmail(
         <h1 style="font-size:26px;line-height:1.2">${escapeHtml(title)}</h1>
         ${description ? `<p style="font-size:15px;line-height:1.6;color:#454b59;white-space:pre-wrap">${escapeHtml(description)}</p>` : ""}
         <p><a href="${escapeHtml(share.url)}" style="display:inline-block;padding:13px 19px;border-radius:10px;background:#755cff;color:#fff;text-decoration:none;font-weight:700">Open secure share</a></p>
-        <p style="color:#687083;font-size:13px">${escapeHtml(expiry)} The link may require a password supplied separately by the sender.</p>
+        <p style="color:#687083;font-size:13px">${escapeHtml(expiry)}</p>
+        ${passwordHtml}
       </div>
     `,
+  };
+}
+
+export async function sendShareEmail(
+  settings: EmailSettings,
+  recipient: string,
+  share: ShareEmailDetails,
+): Promise<void> {
+  await transportFor(settings).sendMail({
+    from: { name: settings.fromName, address: settings.fromAddress },
+    to: recipient,
+    ...buildShareEmail(share),
   });
 }
 

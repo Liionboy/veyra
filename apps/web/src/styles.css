@@ -827,6 +827,132 @@ a {
   color: var(--text-faint);
 }
 
+.share-details-grid input:disabled,
+.share-details-grid textarea:disabled,
+.options-grid input:disabled,
+.options-grid select:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.password-option {
+  display: grid;
+  gap: 7px;
+}
+
+.password-tools {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.password-tools button {
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid rgb(var(--overlay-rgb) / 0.08);
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  background: rgb(var(--overlay-rgb) / 0.035);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.password-tools button:hover:not(:disabled) {
+  border-color: rgb(var(--accent-primary-rgb) / 0.3);
+  color: var(--text-strong);
+  background: rgb(var(--accent-primary-rgb) / 0.07);
+}
+
+.password-tools button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.password-tools svg {
+  width: 13px;
+  height: 13px;
+}
+
+.options-grid .email-password-option {
+  min-height: 66px;
+  padding: 12px;
+  border: 1px solid rgb(var(--accent-warning-rgb) / 0.16);
+  border-radius: 11px;
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgb(var(--accent-warning-rgb) / 0.04);
+  cursor: pointer;
+}
+
+.options-grid .email-password-option:has(input:disabled) {
+  border-color: rgb(var(--overlay-rgb) / 0.07);
+  background: rgb(var(--overlay-rgb) / 0.025);
+  cursor: not-allowed;
+}
+
+.options-grid .email-password-option > input {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  padding: 0;
+  flex: 0 0 auto;
+  accent-color: var(--accent-primary);
+}
+
+.options-grid .email-password-option > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  color: var(--text-secondary);
+}
+
+.email-password-option strong {
+  color: var(--text-strong);
+  font-size: 12px;
+}
+
+.email-password-option small {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.locked-options-note {
+  margin: 2px 4px 8px;
+  padding: 9px 11px;
+  border: 1px solid rgb(var(--accent-warning-rgb) / 0.14);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-muted);
+  background: rgb(var(--accent-warning-rgb) / 0.035);
+  font-size: 10px;
+}
+
+.locked-options-note button {
+  padding: 0;
+  border: 0;
+  color: var(--accent-primary-text);
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 .form-error {
   margin: 8px 4px;
   color: var(--danger);
@@ -1131,6 +1257,77 @@ a {
 }
 
 .share-link button svg {
+  width: 14px;
+}
+
+.share-password-result {
+  width: 100%;
+  min-height: 58px;
+  margin-top: 10px;
+  padding: 8px 8px 8px 13px;
+  border: 1px solid rgb(var(--accent-warning-rgb) / 0.17);
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgb(var(--accent-warning-rgb) / 0.04);
+}
+
+.share-password-result > span {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--accent-warning-text);
+  text-align: left;
+}
+
+.share-password-result > span > svg {
+  width: 16px;
+  flex: 0 0 auto;
+}
+
+.share-password-result > span > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.share-password-result small {
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.share-password-result strong {
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.share-password-result button {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-strong);
+  background: var(--surface-control);
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.share-password-result button svg {
   width: 14px;
 }
 
@@ -3198,6 +3395,20 @@ footer p {
   .share-details-grid,
   .success-actions {
     grid-template-columns: 1fr;
+  }
+
+  .share-password-result {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .share-password-result button {
+    justify-content: center;
+  }
+
+  .locked-options-note {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .success-actions > :last-child {

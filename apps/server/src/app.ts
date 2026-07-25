@@ -172,6 +172,21 @@ const uploadFileParamsSchema = z.object({
   fileId: z.string().uuid(),
 });
 
+const uploadCompletionSchema = z
+  .object({
+    includePasswordInEmail: z.boolean().default(false),
+    password: z.string().min(8).max(256).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.includePasswordInEmail && !value.password) {
+      context.addIssue({
+        code: "custom",
+        path: ["password"],
+        message: "Enter the share password to include it in the email.",
+      });
+    }
+  });
+
 const globalShareParamsSchema = z.object({
   id: z.string().uuid(),
 });
@@ -289,7 +304,12 @@ function httpError(statusCode: number, message: string): Error & { statusCode: n
   return Object.assign(new Error(message), { statusCode });
 }
 
-export function buildApp() {
+export interface AppDependencies {
+  sendShareEmail?: typeof sendShareEmail;
+}
+
+export function buildApp(dependencies: AppDependencies = {}) {
+  const deliverShareEmail = dependencies.sendShareEmail ?? sendShareEmail;
   const app = Fastify({
     logger:
       config.NODE_ENV === "test"
@@ -546,7 +566,7 @@ export function buildApp() {
   app.get("/api/health", async () => ({
     status: "ok",
     service: "veyra",
-    version: "1.0.0",
+    version: "1.1.0",
   }));
 
   app.get("/api/v1/public/config", async () => {
@@ -570,7 +590,7 @@ export function buildApp() {
       oidc: oidcSettings.enabled
         ? { enabled: true, label: oidcSettings.label }
         : { enabled: false, label: null },
-      version: "1.0.0",
+      version: "1.1.0",
     };
   });
 
@@ -1985,7 +2005,7 @@ export function buildApp() {
         return reply.code(500).send({ message: "The share link could not be recovered." });
       }
       const url = new URL(`/s/${token}`, config.VEYRA_BASE_URL).toString();
-      await sendShareEmail(settings, share.recipient_email, {
+      await deliverShareEmail(settings, share.recipient_email, {
         title: share.title,
         description: share.description ?? share.note,
         url,
@@ -2129,8 +2149,44 @@ export function buildApp() {
     },
     async (request, reply) => {
       const { uploadId } = uploadParamsSchema.parse(request.params);
+      const completion = uploadCompletionSchema.parse(request.body ?? {});
       const session = ownedUploadSession(request, reply, uploadId);
       if (!session) return;
+      let passwordForEmail: string | null = null;
+      if (
+        completion.includePasswordInEmail &&
+        session.effects_claimed_at === null
+      ) {
+        const pendingShare = session.share_id
+          ? database.findShareById(session.share_id)
+          : undefined;
+        if (!pendingShare?.recipient_email) {
+          return reply.code(400).send({
+            message:
+              "Add a recipient email before including the share password.",
+          });
+        }
+        if (!pendingShare.password_hash || !pendingShare.password_salt) {
+          return reply.code(400).send({
+            message:
+              "Set a share password before including it in the recipient email.",
+          });
+        }
+        if (
+          !completion.password ||
+          !(await verifyPassword(
+            completion.password,
+            pendingShare.password_salt,
+            pendingShare.password_hash,
+          ))
+        ) {
+          return reply.code(400).send({
+            message:
+              "The password supplied for email delivery does not match this share.",
+          });
+        }
+        passwordForEmail = completion.password;
+      }
       const finalized = await uploadService.finalize(session);
       const share = finalized.share;
       if (!share?.token_encrypted) {
@@ -2142,12 +2198,16 @@ export function buildApp() {
         database.claimUploadCompletionEffects(uploadId);
       let emailSent: boolean | null = null;
       let emailWarning: string | null = null;
+      let passwordIncludedInEmail = false;
+      const passwordRetryNotice = passwordForEmail
+        ? " Veyra did not retain the password; retries send only the link."
+        : "";
       if (effectsClaimed && share.recipient_email) {
         const settings = loadEmailSettings();
         if (!settings) {
           emailSent = false;
           emailWarning =
-            "The share was created, but email delivery is not configured.";
+            `The share was created, but email delivery is not configured.${passwordRetryNotice}`;
         } else if (
           database.shareEmailDeliveryCount(
             share.owner_id!,
@@ -2156,10 +2216,10 @@ export function buildApp() {
         ) {
           emailSent = false;
           emailWarning =
-            "The share was created, but this account reached its daily email limit.";
+            `The share was created, but this account reached its daily email limit.${passwordRetryNotice}`;
         } else {
           try {
-            await sendShareEmail(settings, share.recipient_email, {
+            await deliverShareEmail(settings, share.recipient_email, {
               title: share.title,
               description: share.description,
               url,
@@ -2167,8 +2227,10 @@ export function buildApp() {
                 share.expires_at === null
                   ? null
                   : new Date(share.expires_at).toISOString(),
+              password: passwordForEmail,
             });
             emailSent = true;
+            passwordIncludedInEmail = passwordForEmail !== null;
             const auditEventId = database.audit(
               share.id,
               "share.email_sent",
@@ -2186,7 +2248,7 @@ export function buildApp() {
             );
             emailSent = false;
             emailWarning =
-              "The share was created, but the email could not be delivered.";
+              `The share was created, but the email could not be delivered.${passwordRetryNotice}`;
           }
         }
       }
@@ -2208,6 +2270,7 @@ export function buildApp() {
             : new Date(share.expires_at).toISOString(),
         emailSent,
         emailWarning,
+        passwordIncludedInEmail,
         scanStatus: finalized.scanStatus,
       };
     },
