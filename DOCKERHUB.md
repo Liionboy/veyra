@@ -91,10 +91,10 @@ delete all Veyra data.
 This deployment is deliberately single-node: do not run multiple active
 replicas against the same SQLite database.
 
-Version `1.0.0`:
+Version `1.1.0`:
 
 ```yaml
-image: adrianbrisca/veyra:1.0.0
+image: adrianbrisca/veyra:1.1.0
 ```
 
 Use a versioned tag for predictable deployments. `latest` follows the newest

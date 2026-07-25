@@ -36,7 +36,7 @@ const fallback: PublicConfig = {
     chunkBytes: 8 * 1024 ** 2,
   },
   oidc: { enabled: false, label: null },
-  version: "1.0.0",
+  version: "1.1.0",
 };
 
 const PublicConfigContext = createContext<PublicConfig>(fallback);

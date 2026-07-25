@@ -68,6 +68,7 @@ import {
   PublicConfigProvider,
   usePublicConfig,
 } from "./public-config";
+import { generateSharePassword } from "./share-password";
 
 interface UploadResult {
   token: string;
@@ -76,6 +77,7 @@ interface UploadResult {
   expiresAt: string | null;
   emailSent: boolean | null;
   emailWarning: string | null;
+  passwordIncludedInEmail: boolean;
   scanStatus: "clean" | "disabled";
 }
 
@@ -401,6 +403,7 @@ function UploadPanel() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
+  const [includePasswordInEmail, setIncludePasswordInEmail] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [activeSession, setActiveSession] =
@@ -408,13 +411,31 @@ function UploadPanel() {
   const [error, setError] = useState("");
   const [result, setResult] = useState<UploadResult | null>(null);
   const [showQr, setShowQr] = useState(false);
-  const { copied, copy } = useClipboard();
+  const { copied: linkCopied, copy: copyLink } = useClipboard();
+  const { copied: passwordCopied, copy: copyPassword } = useClipboard();
   const publicConfig = usePublicConfig();
+  const settingsLocked = activeSession !== null || uploading;
+  const canIncludePasswordInEmail =
+    password.length >= 8 && recipientEmail.trim().length > 0;
 
   const totalSize = useMemo(
     () => files.reduce((total, item) => total + item.file.size, 0),
     [files],
   );
+
+  function createPassword() {
+    try {
+      setPassword(generateSharePassword());
+      setIncludePasswordInEmail(false);
+      setError("");
+    } catch (generationError) {
+      setError(
+        generationError instanceof Error
+          ? generationError.message
+          : "A secure password could not be generated.",
+      );
+    }
+  }
 
   function discardPendingSession() {
     let session = activeSession;
@@ -551,6 +572,13 @@ function UploadPanel() {
         session,
         apiRoot: "/api/v1/uploads",
         completePath: `/api/v1/uploads/${session.id}/complete`,
+        completePayload:
+          includePasswordInEmail && canIncludePasswordInEmail
+            ? {
+                includePasswordInEmail: true,
+                password,
+              }
+            : {},
         signal: controller.signal,
         onProgress: setProgress,
       });
@@ -593,14 +621,31 @@ function UploadPanel() {
         </p>
         <div className="share-link">
           <span>{shareUrl}</span>
-          <button type="button" onClick={() => copy(shareUrl)}>
-            {copied ? <Check /> : <Copy />}
-            {copied ? "Copied" : "Copy"}
+          <button type="button" onClick={() => copyLink(shareUrl)}>
+            {linkCopied ? <Check /> : <Copy />}
+            {linkCopied ? "Copied" : "Copy"}
           </button>
         </div>
+        {password && (
+          <div className="share-password-result">
+            <span>
+              <LockKeyhole />
+              <span>
+                <small>Share password</small>
+                <strong>Available to copy in this tab only</strong>
+              </span>
+            </span>
+            <button type="button" onClick={() => copyPassword(password)}>
+              {passwordCopied ? <Check /> : <Copy />}
+              {passwordCopied ? "Copied" : "Copy password"}
+            </button>
+          </div>
+        )}
         {result.emailSent === true && (
           <p className="delivery-status sent">
-            <Mail /> The secure link was emailed to {recipientEmail}.
+            <Mail /> The secure link
+            {result.passwordIncludedInEmail ? " and password were" : " was"} emailed
+            to {recipientEmail}.
           </p>
         )}
         {result.emailWarning && (
@@ -622,6 +667,10 @@ function UploadPanel() {
               setTitle("");
               setDescription("");
               setRecipientEmail("");
+              setPassword("");
+              setIncludePasswordInEmail(false);
+              setMaxDownloads("");
+              setExpiresInHours("168");
             }}
           >
             <RotateCcw /> Send another
@@ -765,6 +814,7 @@ function UploadPanel() {
             maxLength={100}
             placeholder="e.g. Project photos"
             value={title}
+            disabled={settingsLocked}
             onChange={(event) => setTitle(event.target.value)}
           />
         </label>
@@ -775,7 +825,12 @@ function UploadPanel() {
             maxLength={254}
             placeholder="name@example.com · optional"
             value={recipientEmail}
-            onChange={(event) => setRecipientEmail(event.target.value)}
+            disabled={settingsLocked}
+            onChange={(event) => {
+              const value = event.target.value;
+              setRecipientEmail(value);
+              if (!value.trim()) setIncludePasswordInEmail(false);
+            }}
           />
         </label>
         <label className="wide">
@@ -785,6 +840,7 @@ function UploadPanel() {
             rows={3}
             placeholder="Add context or instructions for the recipient"
             value={description}
+            disabled={settingsLocked}
             onChange={(event) => setDescription(event.target.value)}
           />
         </label>
@@ -811,6 +867,7 @@ function UploadPanel() {
             </span>
             <select
               value={expiresInHours}
+              disabled={settingsLocked}
               onChange={(event) => setExpiresInHours(event.target.value)}
             >
               <option value="1">After 1 hour</option>
@@ -820,19 +877,43 @@ function UploadPanel() {
               <option value="never">Never</option>
             </select>
           </label>
-          <label>
-            <span>
-              <LockKeyhole /> Password
-            </span>
-            <input
-              type="password"
-              minLength={8}
-              maxLength={256}
-              placeholder="Optional · 8+ characters"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </label>
+          <div className="password-option">
+            <label>
+              <span>
+                <LockKeyhole /> Password
+              </span>
+              <input
+                type="password"
+                minLength={8}
+                maxLength={256}
+                placeholder="Optional · 8+ characters"
+                value={password}
+                disabled={settingsLocked}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setPassword(value);
+                  if (value.length < 8) setIncludePasswordInEmail(false);
+                }}
+              />
+            </label>
+            <div className="password-tools">
+              <button
+                type="button"
+                disabled={settingsLocked}
+                onClick={createPassword}
+              >
+                <Sparkles /> Generate
+              </button>
+              <button
+                type="button"
+                disabled={settingsLocked || password.length < 8}
+                onClick={() => copyPassword(password)}
+              >
+                {passwordCopied ? <Check /> : <Copy />}
+                {passwordCopied ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
           <label>
             <span>
               <Gauge /> Download limit
@@ -843,9 +924,37 @@ function UploadPanel() {
               max="1000000"
               placeholder="Unlimited"
               value={maxDownloads}
+              disabled={settingsLocked}
               onChange={(event) => setMaxDownloads(event.target.value)}
             />
           </label>
+          <label className="email-password-option">
+            <input
+              type="checkbox"
+              checked={includePasswordInEmail}
+              disabled={settingsLocked || !canIncludePasswordInEmail}
+              onChange={(event) =>
+                setIncludePasswordInEmail(event.target.checked)
+              }
+            />
+            <span>
+              <strong>Include password in recipient email</strong>
+              <small>
+                {canIncludePasswordInEmail
+                  ? "Less secure: anyone with this email will have both the link and password."
+                  : "Add a valid password and recipient email to enable this option."}
+              </small>
+            </span>
+          </label>
+        </div>
+      )}
+
+      {activeSession && !uploading && (
+        <div className="locked-options-note">
+          <span>The paused upload keeps its original link settings.</span>
+          <button type="button" onClick={discardPendingSession}>
+            Change settings
+          </button>
         </div>
       )}
 
