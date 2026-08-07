@@ -2612,7 +2612,7 @@ function AdminPlatformSettings() {
               <h2>Capacity & free-space protection</h2>
               <p>Atomic reservations prevent concurrent uploads from oversubscribing storage.</p>
             </div>
-            <span className="status-badge enabled">
+            <span className="status-badge enabled storage-value-badge">
               {formatBytes(capacity.usage.committedBytes)} used
             </span>
           </div>
@@ -3416,7 +3416,7 @@ function SettingsPage({
                 <h2>Your storage</h2>
                 <p>Committed files and in-progress quota reservations for this account.</p>
               </div>
-              <span className="status-badge enabled">
+              <span className="status-badge enabled storage-value-badge">
                 {formatBytes(status.user.storage.usedBytes)}
               </span>
             </div>
