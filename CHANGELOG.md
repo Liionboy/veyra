@@ -5,6 +5,15 @@ All notable changes to Veyra are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.2] - 2026-08-07
+
+### Fixed
+
+- Health and public configuration endpoints now derive the application version
+  from package metadata instead of a stale hardcoded value
+- The web fallback configuration uses the same package version, preventing
+  release metadata from drifting across the server and client
+
 ## [1.1.1] - 2026-08-07
 
 ### Security
@@ -64,6 +73,7 @@ and the project follows [Semantic Versioning](https://semver.org/).
 - Path normalization, opaque object keys, ZIP traversal prevention, CSP,
   rate limits, and privacy-preserving audit events
 
+[1.1.2]: https://github.com/Liionboy/veyra/releases/tag/v1.1.2
 [1.1.1]: https://github.com/Liionboy/veyra/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Liionboy/veyra/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Liionboy/veyra/releases/tag/v1.0.0
