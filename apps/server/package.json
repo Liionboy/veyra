@@ -26,7 +26,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/archiver": "^7.0.0",
+    "@types/archiver": "^8.0.0",
     "@types/node": "^26.1.1",
     "@types/nodemailer": "^8.0.1",
     "@types/qrcode": "^1.5.6",
