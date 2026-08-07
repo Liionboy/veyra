@@ -2737,18 +2737,21 @@ function AdminPlatformSettings() {
           <form className="email-form" onSubmit={saveStorage}>
             <label>
               <span>Backend</span>
-              <select
-                value={storageForm.backend}
-                onChange={(event) =>
-                  setStorageForm({
-                    ...storageForm,
-                    backend: event.target.value as "local" | "s3",
-                  })
-                }
-              >
-                <option value="local">Local volume</option>
-                <option value="s3">S3-compatible</option>
-              </select>
+              <div className="settings-select-wrap">
+                <select
+                  value={storageForm.backend}
+                  onChange={(event) =>
+                    setStorageForm({
+                      ...storageForm,
+                      backend: event.target.value as "local" | "s3",
+                    })
+                  }
+                >
+                  <option value="local">Local volume</option>
+                  <option value="s3">S3-compatible</option>
+                </select>
+                <ChevronDown aria-hidden="true" />
+              </div>
             </label>
             {storageForm.backend === "s3" && (
               <>
@@ -2949,15 +2952,20 @@ function AdminPlatformSettings() {
                 }
               />
             </label>
-            <label className="wide">
-              <span>Logo (PNG, JPEG, or WebP; max 2 MB)</span>
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                disabled={busy === "logo"}
-                onChange={(event) => void uploadLogo(event)}
-              />
-            </label>
+            <div className="branding-logo-field wide">
+              <span>Logo</span>
+              <label className={`settings-file-picker ${busy === "logo" ? "uploading" : ""}`}>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  disabled={busy === "logo"}
+                  onChange={(event) => void uploadLogo(event)}
+                />
+                <UploadCloud aria-hidden="true" />
+                <span>{busy === "logo" ? "Uploading logo…" : "Choose logo file"}</span>
+                <small>PNG, JPEG, or WebP · max 2 MB</small>
+              </label>
+            </div>
             <div className="settings-actions wide">
               <button className="primary-button compact" disabled={busy === "branding"}>
                 <Save /> Save branding

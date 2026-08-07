@@ -5,6 +5,16 @@ All notable changes to Veyra are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.4] - 2026-08-08
+
+### Changed
+
+- Modernized the storage backend selector with theme-aware styling and a
+  consistent dropdown indicator
+- Replaced the browser-native branding logo picker with an accessible,
+  theme-aware upload control and visible upload state
+- Refined the branding accent picker and settings field focus feedback
+
 ## [1.1.3] - 2026-08-08
 
 ### Changed
@@ -82,6 +92,7 @@ and the project follows [Semantic Versioning](https://semver.org/).
 - Path normalization, opaque object keys, ZIP traversal prevention, CSP,
   rate limits, and privacy-preserving audit events
 
+[1.1.4]: https://github.com/Liionboy/veyra/releases/tag/v1.1.4
 [1.1.3]: https://github.com/Liionboy/veyra/releases/tag/v1.1.3
 [1.1.2]: https://github.com/Liionboy/veyra/releases/tag/v1.1.2
 [1.1.1]: https://github.com/Liionboy/veyra/releases/tag/v1.1.1
