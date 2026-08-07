@@ -28,6 +28,6 @@
     "node": ">=22.13.0"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^10.0.4"
   }
 }
