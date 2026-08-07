@@ -3103,7 +3103,28 @@ export function buildApp(dependencies: AppDependencies = {}) {
   }
 
   app.setErrorHandler((error, request, reply) => {
-    request.log.warn({ err: error }, "Request failed");
+    const normalized = error instanceof Error ? error : new Error("Unknown error");
+    const candidate = normalized as Error & {
+      statusCode?: number;
+      code?: string;
+      uploadOffset?: number;
+    };
+    const statusCode =
+      error instanceof z.ZodError
+        ? 400
+        : typeof candidate.statusCode === "number"
+          ? candidate.statusCode
+          : 500;
+    request.log.warn(
+      {
+        err: error,
+        method: request.method,
+        path: request.url.split("?", 1)[0] || "/",
+        ip: request.ip,
+        statusCode,
+      },
+      "Request failed",
+    );
     if (error instanceof z.ZodError) {
       return reply.code(400).send({
         message: "The request contains invalid data.",
@@ -3113,16 +3134,6 @@ export function buildApp(dependencies: AppDependencies = {}) {
         })),
       });
     }
-    const normalized = error instanceof Error ? error : new Error("Unknown error");
-    const candidate = normalized as Error & {
-      statusCode?: number;
-      code?: string;
-      uploadOffset?: number;
-    };
-    const statusCode =
-      typeof candidate.statusCode === "number"
-        ? candidate.statusCode
-        : 500;
     if (typeof candidate.uploadOffset === "number") {
       reply.header("Upload-Offset", candidate.uploadOffset);
     }

@@ -1,6 +1,6 @@
 services:
   veyra:
-    image: "${VEYRA_IMAGE:-adrianbrisca/veyra:1.1.0}"
+    image: "${VEYRA_IMAGE:-adrianbrisca/veyra:1.1.1}"
     container_name: veyra
     restart: unless-stopped
     init: true
