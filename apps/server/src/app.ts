@@ -16,6 +16,7 @@ import * as oidc from "openid-client";
 import QRCode from "qrcode";
 import sharp from "sharp";
 import { z } from "zod";
+import packageMetadata from "../../../package.json" with { type: "json" };
 import { testAntivirus } from "./antivirus.js";
 import {
   createLoginChallenge,
@@ -566,7 +567,7 @@ export function buildApp(dependencies: AppDependencies = {}) {
   app.get("/api/health", async () => ({
     status: "ok",
     service: "veyra",
-    version: "1.1.0",
+    version: packageMetadata.version,
   }));
 
   app.get("/api/v1/public/config", async () => {
@@ -590,7 +591,7 @@ export function buildApp(dependencies: AppDependencies = {}) {
       oidc: oidcSettings.enabled
         ? { enabled: true, label: oidcSettings.label }
         : { enabled: false, label: null },
-      version: "1.1.0",
+      version: packageMetadata.version,
     };
   });
 

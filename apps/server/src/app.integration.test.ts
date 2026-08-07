@@ -19,6 +19,9 @@ process.env.VEYRA_MAX_FILE_SIZE = String(1024 * 1024);
 process.env.VEYRA_UPLOAD_CHUNK_SIZE = String(1024 * 1024);
 
 const { buildApp } = await import("./app.js");
+const packageMetadata = await import("../../../package.json", {
+  with: { type: "json" },
+});
 
 function cookieValue(header: string | string[] | undefined): string {
   const value = Array.isArray(header) ? header[0] : header;
@@ -41,6 +44,23 @@ test("resumable shares, preview, ZIP, reverse inbox, and admin privacy work end 
   });
   await app.ready();
   try {
+    const health = await app.inject({ method: "GET", url: "/api/health" });
+    assert.equal(health.statusCode, 200, health.body);
+    assert.equal(
+      health.json<{ version: string }>().version,
+      packageMetadata.default.version,
+    );
+
+    const publicConfig = await app.inject({
+      method: "GET",
+      url: "/api/v1/public/config",
+    });
+    assert.equal(publicConfig.statusCode, 200, publicConfig.body);
+    assert.equal(
+      publicConfig.json<{ version: string }>().version,
+      packageMetadata.default.version,
+    );
+
     const setup = await app.inject({
       method: "POST",
       url: "/api/v1/auth/setup",

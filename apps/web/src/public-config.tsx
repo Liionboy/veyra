@@ -5,6 +5,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import packageMetadata from "../../../package.json";
 
 export interface PublicConfig {
   name: string;
@@ -36,7 +37,7 @@ const fallback: PublicConfig = {
     chunkBytes: 8 * 1024 ** 2,
   },
   oidc: { enabled: false, label: null },
-  version: "1.1.0",
+  version: packageMetadata.version,
 };
 
 const PublicConfigContext = createContext<PublicConfig>(fallback);
