@@ -32,7 +32,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -50,7 +51,7 @@ a {
   text-decoration: none;
 }
 
-:where(button, a, input, select, summary):focus-visible {
+:where(button, a, input, select, textarea, summary):focus-visible {
   outline: 3px solid var(--accent-secondary);
   outline-offset: 3px;
 }
@@ -2536,6 +2537,48 @@ footer p {
 .email-form input:focus,
 .two-factor-setup input:focus {
   border-color: rgb(var(--accent-primary-rgb) / 0.6);
+}
+
+.request-form select,
+.request-form textarea {
+  width: 100%;
+  border: 1px solid rgb(var(--overlay-rgb) / 0.08);
+  border-radius: 10px;
+  outline: 0;
+  color: var(--text-strong);
+  background: var(--surface-input);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.request-form select {
+  height: 43px;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.request-form textarea {
+  min-height: 96px;
+  padding: 11px 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.request-form textarea::placeholder {
+  color: var(--text-faint);
+}
+
+.request-form select:hover,
+.request-form textarea:hover {
+  border-color: rgb(var(--overlay-rgb) / 0.16);
+}
+
+.request-form select:focus,
+.request-form textarea:focus {
+  border-color: rgb(var(--accent-primary-rgb) / 0.6);
+  box-shadow: 0 0 0 3px rgb(var(--accent-primary-rgb) / 0.1);
 }
 
 .setting-summary {
