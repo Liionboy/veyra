@@ -5,6 +5,15 @@ All notable changes to Veyra are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.3] - 2026-08-08
+
+### Changed
+
+- Restyled the reverse-upload request instructions and expiry controls to use
+  the same rounded, theme-aware appearance as the rest of the form
+- Added clearer hover, focus, placeholder, and resizing behavior to the
+  request instructions field
+
 ## [1.1.2] - 2026-08-07
 
 ### Fixed
@@ -73,6 +82,7 @@ and the project follows [Semantic Versioning](https://semver.org/).
 - Path normalization, opaque object keys, ZIP traversal prevention, CSP,
   rate limits, and privacy-preserving audit events
 
+[1.1.3]: https://github.com/Liionboy/veyra/releases/tag/v1.1.3
 [1.1.2]: https://github.com/Liionboy/veyra/releases/tag/v1.1.2
 [1.1.1]: https://github.com/Liionboy/veyra/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Liionboy/veyra/releases/tag/v1.1.0

@@ -2062,7 +2062,7 @@ function UploadRequestsPage({ onLogout }: { onLogout: () => void }) {
             <span><FolderOpen /></span>
             <div><h2>New upload request</h2><p>Every submission uses your quota and security policy.</p></div>
           </div>
-          <form className="email-form" onSubmit={create}>
+          <form className="email-form request-form" onSubmit={create}>
             <label>
               <span>Request name</span>
               <input required maxLength={100} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Collect event photos" />
@@ -2073,7 +2073,13 @@ function UploadRequestsPage({ onLogout }: { onLogout: () => void }) {
             </label>
             <label className="wide">
               <span>Instructions</span>
-              <textarea rows={3} maxLength={1000} value={description} onChange={(event) => setDescription(event.target.value)} />
+              <textarea
+                rows={3}
+                maxLength={1000}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Add context or instructions for uploaders"
+              />
             </label>
             <label>
               <span>Expires</span>
