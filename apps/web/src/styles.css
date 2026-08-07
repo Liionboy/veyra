@@ -1910,29 +1910,59 @@ footer p {
 
 .capacity-meter {
   grid-column: 1 / -1;
-  padding: 14px;
+  margin-top: 20px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 12px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
   background: rgb(var(--overlay-rgb) / 0.025);
 }
 
-.capacity-meter span {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+.capacity-meter progress {
+  width: 100%;
+  height: 8px;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  appearance: none;
+  background: rgb(var(--overlay-rgb) / 0.08);
 }
 
-.capacity-meter strong {
-  color: var(--text-heading);
-  font-size: 13px;
+.capacity-meter progress::-webkit-progress-bar {
+  border-radius: 999px;
+  background: rgb(var(--overlay-rgb) / 0.08);
 }
 
-.capacity-meter small {
+.capacity-meter progress::-webkit-progress-value {
+  border-radius: 999px;
+  background: var(--accent-primary);
+}
+
+.capacity-meter progress::-moz-progress-bar {
+  border-radius: 999px;
+  background: var(--accent-primary);
+}
+
+.capacity-meter > span {
+  min-width: 0;
   color: var(--text-subtle);
-  font-size: 9px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+}
+
+.status-badge.storage-value-badge {
+  padding: 7px 10px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .user-quota-control {

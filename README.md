@@ -323,7 +323,7 @@ one application replica are deliberate operational boundaries in v1.0.
 Stable images are published at
 [adrianbrisca/veyra](https://hub.docker.com/r/adrianbrisca/veyra).
 
-- `1.1.4` — release tag
+- `1.1.5` — release tag
 - `latest` — newest stable release
 - Seven-character commit SHA — immutable source reference
 

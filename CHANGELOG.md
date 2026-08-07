@@ -5,6 +5,15 @@ All notable changes to Veyra are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.5] - 2026-08-08
+
+### Changed
+
+- Unified the typography and numeric alignment in the account and instance
+  storage summaries
+- Replaced browser-native capacity bars with rounded, theme-aware progress
+  indicators and improved summary spacing
+
 ## [1.1.4] - 2026-08-08
 
 ### Changed
@@ -92,6 +101,7 @@ and the project follows [Semantic Versioning](https://semver.org/).
 - Path normalization, opaque object keys, ZIP traversal prevention, CSP,
   rate limits, and privacy-preserving audit events
 
+[1.1.5]: https://github.com/Liionboy/veyra/releases/tag/v1.1.5
 [1.1.4]: https://github.com/Liionboy/veyra/releases/tag/v1.1.4
 [1.1.3]: https://github.com/Liionboy/veyra/releases/tag/v1.1.3
 [1.1.2]: https://github.com/Liionboy/veyra/releases/tag/v1.1.2
