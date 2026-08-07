@@ -5,6 +5,17 @@ All notable changes to Veyra are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.1] - 2026-08-07
+
+### Security
+
+- Security-related request failures now include the HTTP method, query-free
+  path, client IP, and response status in structured server logs
+- Query strings are excluded from failure logs to prevent accidental exposure
+  of tokens or other sensitive URL parameters
+- Updated `brace-expansion` and `fast-uri` transitive dependencies to address
+  high-severity denial-of-service and URL host-confusion advisories
+
 ## [1.1.0] - 2026-07-25
 
 ### Added
@@ -53,5 +64,6 @@ and the project follows [Semantic Versioning](https://semver.org/).
 - Path normalization, opaque object keys, ZIP traversal prevention, CSP,
   rate limits, and privacy-preserving audit events
 
+[1.1.1]: https://github.com/Liionboy/veyra/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Liionboy/veyra/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Liionboy/veyra/releases/tag/v1.0.0
