@@ -102,6 +102,49 @@ test("unverified and disabled members cannot use sessions", () => {
   temporary.cleanup();
 });
 
+test("users can list and revoke only their own active sessions", () => {
+  const temporary = temporaryDatabase();
+  const database = new VeyraDatabase(temporary.path);
+  const admin = user("admin", "admin@example.test", "admin", true);
+  const member = user("member", "member@example.test", "member", true);
+  assert.equal(database.createInitialUser(admin), true);
+  database.createUnverifiedUser(member, "verification-token", Date.now() + 60_000);
+  database.consumeEmailVerificationToken("verification-token");
+  const now = Date.now();
+  database.createSession({
+    token_hash: "admin-session-current",
+    user_id: admin.id,
+    created_at: now - 2_000,
+    expires_at: now + 60_000,
+  });
+  database.createSession({
+    token_hash: "admin-session-expired",
+    user_id: admin.id,
+    created_at: now - 3_000,
+    expires_at: now - 1,
+  });
+  database.createSession({
+    token_hash: "member-session",
+    user_id: member.id,
+    created_at: now - 1_000,
+    expires_at: now + 60_000,
+  });
+
+  assert.deepEqual(database.listSessionsForUser(admin.id, now).map((entry) => ({ ...entry })), [
+    {
+      token_hash: "admin-session-current",
+      created_at: now - 2_000,
+      expires_at: now + 60_000,
+    },
+  ]);
+  assert.equal(database.deleteSessionForUser(admin.id, "member-session"), false);
+  assert.equal(database.deleteSessionForUser(admin.id, "admin-session-current"), true);
+  assert.deepEqual(database.listSessionsForUser(admin.id, now).map((entry) => ({ ...entry })), []);
+
+  database.close();
+  temporary.cleanup();
+});
+
 test("using one password reset token invalidates every token for that user", () => {
   const temporary = temporaryDatabase();
   const database = new VeyraDatabase(temporary.path);

@@ -78,6 +78,12 @@ export interface SessionRecord {
   expires_at: number;
 }
 
+export interface UserSessionRecord {
+  token_hash: string;
+  created_at: number;
+  expires_at: number;
+}
+
 export interface ManagedShareRecord extends ShareRecord {
   file_count: number;
 }
@@ -2511,6 +2517,24 @@ export class VeyraDatabase {
 
   deleteSession(tokenHash: string): void {
     this.db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(tokenHash);
+  }
+
+  listSessionsForUser(userId: string, now = Date.now()): UserSessionRecord[] {
+    return this.db
+      .prepare(
+        `SELECT token_hash, created_at, expires_at
+         FROM sessions
+         WHERE user_id = ? AND expires_at > ?
+         ORDER BY created_at DESC`,
+      )
+      .all(userId, now) as unknown as UserSessionRecord[];
+  }
+
+  deleteSessionForUser(userId: string, tokenHash: string): boolean {
+    const result = this.db
+      .prepare("DELETE FROM sessions WHERE user_id = ? AND token_hash = ?")
+      .run(userId, tokenHash);
+    return result.changes === 1;
   }
 
   createPasswordResetToken(

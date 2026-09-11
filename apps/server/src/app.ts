@@ -126,6 +126,10 @@ const managedUserParamsSchema = z.object({
   id: z.string().uuid(),
 });
 
+const sessionParamsSchema = z.object({
+  id: z.string().regex(/^[a-f0-9]{64}$/),
+});
+
 const managedUserStatusSchema = z.object({
   disabled: z.boolean().optional(),
   quotaBytes: z.number().int().positive().nullable().optional(),
@@ -1160,6 +1164,38 @@ export function buildApp(dependencies: AppDependencies = {}) {
   app.post("/api/v1/auth/logout", async (request, reply) => {
     clearSession(request, reply);
     return { authenticated: false };
+  });
+
+  app.get("/api/v1/auth/sessions", async (request, reply) => {
+    const user = authenticatedUser(request);
+    if (!user) return reply.code(401).send({ message: "Authentication required." });
+    const currentToken = readCookie(request, "veyra_session");
+    const currentHash = currentToken ? hashToken(currentToken) : undefined;
+    return {
+      sessions: database.listSessionsForUser(user.id).map((session) => ({
+        id: session.token_hash,
+        createdAt: new Date(session.created_at).toISOString(),
+        expiresAt: new Date(session.expires_at).toISOString(),
+        current: session.token_hash === currentHash,
+      })),
+    };
+  });
+
+  app.delete("/api/v1/auth/sessions/:id", async (request, reply) => {
+    const user = authenticatedUser(request);
+    if (!user) return reply.code(401).send({ message: "Authentication required." });
+    const { id } = sessionParamsSchema.parse(request.params);
+    const currentToken = readCookie(request, "veyra_session");
+    if (currentToken && hashToken(currentToken) === id) {
+      return reply
+        .code(409)
+        .send({ message: "Use sign out to end the current session." });
+    }
+    if (!database.deleteSessionForUser(user.id, id)) {
+      return reply.code(404).send({ message: "Session not found." });
+    }
+    database.audit(user.id, "auth.session_revoked", anonymizeIp(request.ip, config.ipSalt));
+    return { revoked: true };
   });
 
   app.post(
