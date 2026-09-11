@@ -2760,6 +2760,42 @@ footer p {
   font-size: 10px;
 }
 
+.session-list {
+  display: grid;
+  gap: 10px;
+}
+
+.session-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.session-row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.session-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.session-identity strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.session-identity small {
+  color: var(--text-subtle);
+  font-size: 11px;
+}
+
 .two-factor-setup {
   display: grid;
   grid-template-columns: 220px 1fr;

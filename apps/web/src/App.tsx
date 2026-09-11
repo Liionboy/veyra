@@ -146,6 +146,13 @@ interface AuthStatus {
   };
 }
 
+interface UserSession {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+  current: boolean;
+}
+
 function Brand() {
   const branding = usePublicConfig();
   return (
@@ -3237,6 +3244,7 @@ function SettingsPage({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [sessions, setSessions] = useState<UserSession[]>([]);
   const { copied, copy } = useClipboard();
 
   useEffect(() => {
@@ -3255,6 +3263,42 @@ function SettingsPage({
       .catch((requestError) => setError(requestError.message));
     void loadUsers();
   }, []);
+
+  useEffect(() => {
+    void loadSessions();
+  }, []);
+
+  async function loadSessions() {
+    try {
+      const value = await jsonRequest<{ sessions: UserSession[] }>(
+        "/api/v1/auth/sessions",
+      );
+      setSessions(value.sessions);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Sessions could not be loaded.",
+      );
+    }
+  }
+
+  async function revokeSession(session: UserSession) {
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await jsonRequest(`/api/v1/auth/sessions/${session.id}`, { method: "DELETE" });
+      setSessions((current) => current.filter((entry) => entry.id !== session.id));
+      setMessage("The selected session was signed out remotely.");
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "The session could not be revoked.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function loadUsers() {
     try {
@@ -3464,6 +3508,17 @@ function SettingsPage({
               <button className="primary-button compact" disabled={busy}>Set up authenticator <ArrowRight /></button>
             </form>
           )}
+        </section>
+        <section className="settings-card">
+          <div className="settings-card-heading"><span><Clock3 /></span><div><h2>Active sessions</h2><p>Review sign-ins and remotely sign out sessions you no longer recognize.</p></div><span className="status-badge enabled">{sessions.length} active</span></div>
+          <div className="session-list">
+            {sessions.map((session) => (
+              <div className="session-row" key={session.id}>
+                <span className="session-identity"><strong>{session.current ? "This device" : "Signed-in session"}</strong><small>Started {new Date(session.createdAt).toLocaleString()} · expires {new Date(session.expiresAt).toLocaleString()}</small></span>
+                {session.current ? <span className="status-badge enabled">Current</span> : <button className="danger-button" type="button" disabled={busy} onClick={() => void revokeSession(session)}><LogOut /> Sign out</button>}
+              </div>
+            ))}
+          </div>
         </section>
         {isAdmin && (
           <>

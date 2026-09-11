@@ -23,7 +23,8 @@ LABEL org.opencontainers.image.title="Veyra" \
       org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app
-RUN mkdir -p /data \
+RUN apk upgrade --no-cache \
+    && mkdir -p /data \
     && chown node:node /data \
     && rm -rf /usr/local/lib/node_modules/npm \
     && rm -f /usr/local/bin/npm /usr/local/bin/npx

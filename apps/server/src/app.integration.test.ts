@@ -73,6 +73,43 @@ test("resumable shares, preview, ZIP, reverse inbox, and admin privacy work end 
     const cookie = cookieValue(setup.headers["set-cookie"]);
     const authenticated = { cookie };
 
+    const secondLogin = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/login",
+      payload: {
+        email: "admin@example.test",
+        password: "correct horse battery staple",
+      },
+    });
+    assert.equal(secondLogin.statusCode, 200, secondLogin.body);
+    const secondCookie = cookieValue(secondLogin.headers["set-cookie"]);
+    const sessions = await app.inject({
+      method: "GET",
+      url: "/api/v1/auth/sessions",
+      headers: authenticated,
+    });
+    assert.equal(sessions.statusCode, 200, sessions.body);
+    const sessionList = sessions.json<{
+      sessions: Array<{ id: string; current: boolean }>;
+    }>().sessions;
+    assert.equal(sessionList.length, 2);
+    assert.equal(sessionList.filter((entry) => entry.current).length, 1);
+    const remoteSession = sessionList.find((entry) => !entry.current);
+    assert.ok(remoteSession);
+    const revoked = await app.inject({
+      method: "DELETE",
+      url: `/api/v1/auth/sessions/${remoteSession.id}`,
+      headers: authenticated,
+    });
+    assert.equal(revoked.statusCode, 200, revoked.body);
+    const revokedSessionCheck = await app.inject({
+      method: "GET",
+      url: "/api/v1/auth/status",
+      headers: { cookie: secondCookie },
+    });
+    assert.equal(revokedSessionCheck.statusCode, 200, revokedSessionCheck.body);
+    assert.equal(revokedSessionCheck.json<{ authenticated: boolean }>().authenticated, false);
+
     const create = await app.inject({
       method: "POST",
       url: "/api/v1/uploads",
