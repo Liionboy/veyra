@@ -5,6 +5,18 @@ All notable changes to Veyra are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-09-11
+
+### Added
+
+- Added active-session management in Settings, including remote sign-out for
+  sessions on other devices
+
+### Security
+
+- Applied non-breaking dependency security updates
+- Refreshed Alpine runtime security packages in the Docker image
+
 ## [1.1.5] - 2026-08-08
 
 ### Changed
@@ -102,6 +114,7 @@ and the project follows [Semantic Versioning](https://semver.org/).
   rate limits, and privacy-preserving audit events
 
 [1.1.5]: https://github.com/Liionboy/veyra/releases/tag/v1.1.5
+[1.2.0]: https://github.com/Liionboy/veyra/releases/tag/v1.2.0
 [1.1.4]: https://github.com/Liionboy/veyra/releases/tag/v1.1.4
 [1.1.3]: https://github.com/Liionboy/veyra/releases/tag/v1.1.3
 [1.1.2]: https://github.com/Liionboy/veyra/releases/tag/v1.1.2
