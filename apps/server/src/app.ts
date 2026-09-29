@@ -40,6 +40,7 @@ import {
 } from "./database.js";
 import {
   type EmailSettings,
+  sendEmailChangeVerification,
   sendEmailVerification,
   sendInvitationEmail,
   sendPasswordReset,
@@ -221,6 +222,18 @@ const twoFactorDisableSchema = z.object({
   code: z.string().min(6).max(32),
 });
 
+const accountPasswordChangeSchema = z.object({
+  currentPassword: z.string().min(1).max(256),
+  newPassword: z.string().min(12).max(256),
+  code: z.string().min(6).max(32).optional(),
+});
+
+const accountEmailChangeSchema = z.object({
+  email: z.string().email().max(254).transform((value) => value.toLowerCase()),
+  currentPassword: z.string().min(1).max(256),
+  code: z.string().min(6).max(32).optional(),
+});
+
 const forgotPasswordSchema = z.object({
   email: z.string().email().max(254),
 });
@@ -311,10 +324,13 @@ function httpError(statusCode: number, message: string): Error & { statusCode: n
 
 export interface AppDependencies {
   sendShareEmail?: typeof sendShareEmail;
+  sendEmailChangeVerification?: typeof sendEmailChangeVerification;
 }
 
 export function buildApp(dependencies: AppDependencies = {}) {
   const deliverShareEmail = dependencies.sendShareEmail ?? sendShareEmail;
+  const deliverEmailChangeVerification =
+    dependencies.sendEmailChangeVerification ?? sendEmailChangeVerification;
   const app = Fastify({
     logger:
       config.NODE_ENV === "test"
@@ -397,6 +413,26 @@ export function buildApp(dependencies: AppDependencies = {}) {
   function authenticatedUser(request: FastifyRequest): UserRecord | undefined {
     const token = readCookie(request, "veyra_session");
     return token ? database.findUserForSession(hashToken(token)) : undefined;
+  }
+
+  async function verifyAccountReauthentication(
+    user: UserRecord,
+    password: string,
+    code?: string,
+  ): Promise<boolean> {
+    if (!(await verifyPassword(password, user.password_salt, user.password_hash))) {
+      return false;
+    }
+    if (user.totp_enabled !== 1) return true;
+    if (!user.totp_secret || !code) return false;
+    const secret = decryptValue(user.totp_secret, config.secret);
+    return (
+      verifyTotp(secret, code) ||
+      database.consumeRecoveryCode(
+        user.id,
+        hashRecoveryCode(code, config.secret),
+      )
+    );
   }
 
   function adminUser(
@@ -1082,6 +1118,32 @@ export function buildApp(dependencies: AppDependencies = {}) {
   );
 
   app.post(
+    "/api/v1/auth/confirm-email-change",
+    { config: { rateLimit: { max: 10, timeWindow: "15 minutes" } } },
+    async (request, reply) => {
+      const { token } = verificationTokenSchema.parse(request.body);
+      const result = database.consumePendingEmailChange(hashToken(token));
+      if (!result) {
+        return reply.code(400).send({
+          message: "The confirmation link is invalid or expired.",
+        });
+      }
+      if ("conflict" in result) {
+        return reply.code(409).send({
+          message: "That email address is already associated with an account.",
+        });
+      }
+      database.audit(
+        null,
+        "auth.email_changed",
+        anonymizeIp(request.ip, config.ipSalt),
+        { userId: result.userId },
+      );
+      return { changed: true };
+    },
+  );
+
+  app.post(
     "/api/v1/auth/login",
     { config: { rateLimit: { max: 8, timeWindow: "15 minutes" } } },
     async (request, reply) => {
@@ -1165,6 +1227,109 @@ export function buildApp(dependencies: AppDependencies = {}) {
     clearSession(request, reply);
     return { authenticated: false };
   });
+
+  app.post(
+    "/api/v1/auth/change-password",
+    { config: { rateLimit: { max: 5, timeWindow: "15 minutes" } } },
+    async (request, reply) => {
+      const user = authenticatedUser(request);
+      if (!user) return reply.code(401).send({ message: "Authentication required." });
+      const body = accountPasswordChangeSchema.parse(request.body);
+      if (
+        !(await verifyAccountReauthentication(
+          user,
+          body.currentPassword,
+          body.code,
+        ))
+      ) {
+        return reply.code(401).send({
+          message: "Password or two-factor code is incorrect.",
+        });
+      }
+      const password = await hashPassword(body.newPassword);
+      database.updatePassword(user.id, password.hash, password.salt);
+      database.audit(
+        null,
+        "auth.password_changed",
+        anonymizeIp(request.ip, config.ipSalt),
+        { userId: user.id },
+      );
+      clearSession(request, reply);
+      return { changed: true, sessionsRevoked: true };
+    },
+  );
+
+  app.post(
+    "/api/v1/auth/change-email",
+    { config: { rateLimit: { max: 3, timeWindow: "30 minutes" } } },
+    async (request, reply) => {
+      const user = authenticatedUser(request);
+      if (!user) return reply.code(401).send({ message: "Authentication required." });
+      const body = accountEmailChangeSchema.parse(request.body);
+      if (
+        !(await verifyAccountReauthentication(
+          user,
+          body.currentPassword,
+          body.code,
+        ))
+      ) {
+        return reply.code(401).send({
+          message: "Password or two-factor code is incorrect.",
+        });
+      }
+      if (body.email === user.email.toLowerCase()) {
+        return reply.code(409).send({
+          message: "That is already the email address on this account.",
+        });
+      }
+      if (database.findUserByEmail(body.email)) {
+        return reply.code(409).send({
+          message: "That email address is already associated with an account.",
+        });
+      }
+      const settings = loadEmailSettings();
+      if (!settings) {
+        return reply.code(503).send({
+          message: "Email delivery is not configured on this Veyra instance.",
+        });
+      }
+      const token = createPublicToken();
+      database.replacePendingEmailChange(
+        user.id,
+        body.email,
+        hashToken(token),
+        Date.now() + 60 * 60 * 1000,
+      );
+      const confirmationUrl = new URL(
+        "/confirm-email-change",
+        config.VEYRA_BASE_URL,
+      );
+      confirmationUrl.searchParams.set("token", token);
+      try {
+        await deliverEmailChangeVerification(
+          settings,
+          body.email,
+          confirmationUrl.toString(),
+        );
+      } catch (error) {
+        database.clearPendingEmailChange(user.id);
+        request.log.error(
+          { err: error, userId: user.id },
+          "Account email change verification failed",
+        );
+        return reply.code(503).send({
+          message: "The confirmation email could not be sent. Try again later.",
+        });
+      }
+      database.audit(
+        null,
+        "auth.email_change_requested",
+        anonymizeIp(request.ip, config.ipSalt),
+        { userId: user.id },
+      );
+      return { verificationSent: true };
+    },
+  );
 
   app.get("/api/v1/auth/sessions", async (request, reply) => {
     const user = authenticatedUser(request);

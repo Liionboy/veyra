@@ -34,12 +34,19 @@ test("resumable shares, preview, ZIP, reverse inbox, and admin privacy work end 
     recipient: string;
     share: ShareEmailDetails;
   }> = [];
+  const accountEmailConfirmations: Array<{
+    recipient: string;
+    confirmationUrl: string;
+  }> = [];
   const app = buildApp({
     sendShareEmail: async (_settings, recipient, shareDetails) => {
       deliveredShareEmails.push({
         recipient,
         share: { ...shareDetails },
       });
+    },
+    sendEmailChangeVerification: async (_settings, recipient, confirmationUrl) => {
+      accountEmailConfirmations.push({ recipient, confirmationUrl });
     },
   });
   await app.ready();
@@ -540,6 +547,116 @@ test("resumable shares, preview, ZIP, reverse inbox, and admin privacy work end 
       1,
     );
     database.close();
+
+    const pendingEmailChange = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/change-email",
+      headers: authenticated,
+      payload: {
+        email: "pending@example.test",
+        currentPassword: "correct horse battery staple",
+      },
+    });
+    assert.equal(pendingEmailChange.statusCode, 200, pendingEmailChange.body);
+    assert.deepEqual(accountEmailConfirmations.map((email) => email.recipient), [
+      "pending@example.test",
+    ]);
+    const staleEmailToken = new URL(
+      accountEmailConfirmations[0]!.confirmationUrl,
+    ).searchParams.get("token");
+    assert.ok(staleEmailToken);
+    const beforeEmailConfirmation = await app.inject({
+      method: "GET",
+      url: "/api/v1/auth/status",
+      headers: authenticated,
+    });
+    assert.equal(
+      beforeEmailConfirmation.json<{ user: { email: string } }>().user.email,
+      "admin@example.test",
+    );
+
+    const passwordChange = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/change-password",
+      headers: authenticated,
+      payload: {
+        currentPassword: "correct horse battery staple",
+        newPassword: "new secure horse battery staple",
+      },
+    });
+    assert.equal(passwordChange.statusCode, 200, passwordChange.body);
+    assert.equal(
+      passwordChange.json<{ sessionsRevoked: boolean }>().sessionsRevoked,
+      true,
+    );
+    const invalidatedEmailConfirmation = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/confirm-email-change",
+      payload: { token: staleEmailToken },
+    });
+    assert.equal(invalidatedEmailConfirmation.statusCode, 400);
+    const revokedProfileSession = await app.inject({
+      method: "GET",
+      url: "/api/v1/auth/status",
+      headers: authenticated,
+    });
+    assert.equal(
+      revokedProfileSession.json<{ authenticated: boolean }>().authenticated,
+      false,
+    );
+
+    const loginAfterPasswordChange = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/login",
+      payload: {
+        email: "admin@example.test",
+        password: "new secure horse battery staple",
+      },
+    });
+    assert.equal(loginAfterPasswordChange.statusCode, 200);
+    const updatedPasswordCookie = cookieValue(
+      loginAfterPasswordChange.headers["set-cookie"],
+    );
+    const updatedPasswordSession = { cookie: updatedPasswordCookie };
+
+    const confirmedEmailChangeRequest = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/change-email",
+      headers: updatedPasswordSession,
+      payload: {
+        email: "new-admin@example.test",
+        currentPassword: "new secure horse battery staple",
+      },
+    });
+    assert.equal(confirmedEmailChangeRequest.statusCode, 200);
+    const finalEmailConfirmation = new URL(
+      accountEmailConfirmations[1]!.confirmationUrl,
+    ).searchParams.get("token");
+    assert.ok(finalEmailConfirmation);
+    const finalEmailChange = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/confirm-email-change",
+      payload: { token: finalEmailConfirmation },
+    });
+    assert.equal(finalEmailChange.statusCode, 200, finalEmailChange.body);
+    const revokedAfterEmailChange = await app.inject({
+      method: "GET",
+      url: "/api/v1/auth/status",
+      headers: updatedPasswordSession,
+    });
+    assert.equal(
+      revokedAfterEmailChange.json<{ authenticated: boolean }>().authenticated,
+      false,
+    );
+    const loginWithNewEmail = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/login",
+      payload: {
+        email: "new-admin@example.test",
+        password: "new secure horse battery staple",
+      },
+    });
+    assert.equal(loginWithNewEmail.statusCode, 200, loginWithNewEmail.body);
   } finally {
     await app.close();
     rmSync(directory, { recursive: true, force: true });

@@ -103,6 +103,29 @@ export async function sendEmailVerification(
   });
 }
 
+export async function sendEmailChangeVerification(
+  settings: EmailSettings,
+  recipient: string,
+  confirmationUrl: string,
+): Promise<void> {
+  const safeUrl = escapeHtml(confirmationUrl);
+  await transportFor(settings).sendMail({
+    from: { name: settings.fromName, address: settings.fromAddress },
+    to: recipient,
+    subject: "Confirm your new Veyra email address",
+    text: `A request was made to change the email address on your Veyra account. Confirm the new address within one hour:\n${confirmationUrl}\n\nIf you did not request this change, ignore this email. Your current address will remain unchanged.`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#171923">
+        <p style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#755cff">Veyra account security</p>
+        <h1 style="font-size:24px">Confirm your new email address</h1>
+        <p>A request was made to change the email address on your Veyra account.</p>
+        <p><a href="${safeUrl}" style="display:inline-block;padding:12px 18px;border-radius:10px;background:#755cff;color:#fff;text-decoration:none;font-weight:700">Confirm email change</a></p>
+        <p style="color:#687083;font-size:13px">This one-time link expires in one hour. Your current address will remain unchanged unless you confirm it. If you did not request this change, ignore this email.</p>
+      </div>
+    `,
+  });
+}
+
 export async function sendTestEmail(
   settings: EmailSettings,
   recipient: string,
