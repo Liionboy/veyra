@@ -273,6 +273,11 @@ function Header({
           </a>
         )}
         {authenticated && (
+          <a className="profile-link" href="/profile">
+            <Fingerprint /> Profile
+          </a>
+        )}
+        {authenticated && (
           <a className="settings-link" href="/settings">
             <Settings /> Settings
           </a>
@@ -4067,6 +4072,183 @@ function ReverseSharePage({ token }: { token: string }) {
   );
 }
 
+function ProfilePage({ status, onLogout }: { status: AuthStatus; onLogout: () => void }) {
+  const [newEmail, setNewEmail] = useState("");
+  const [emailPassword, setEmailPassword] = useState("");
+  const [emailCode, setEmailCode] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordCode, setPasswordCode] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordChanged, setPasswordChanged] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const user = status.user!;
+
+  async function requestEmailChange(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setEmailError("");
+    setEmailMessage("");
+    try {
+      await jsonRequest("/api/v1/auth/change-email", {
+        method: "POST",
+        body: JSON.stringify({
+          email: newEmail,
+          currentPassword: emailPassword,
+          ...(user.twoFactorEnabled ? { code: emailCode } : {}),
+        }),
+      });
+      setEmailMessage(
+        `We sent a confirmation link to ${newEmail}. Your current address stays active until you confirm it.`,
+      );
+      setNewEmail("");
+      setEmailPassword("");
+      setEmailCode("");
+    } catch (requestError) {
+      setEmailError(
+        requestError instanceof Error
+          ? requestError.message
+          : "The confirmation email could not be sent.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changePassword(event: FormEvent) {
+    event.preventDefault();
+    setPasswordError("");
+    if (newPassword !== confirmPassword) {
+      setPasswordError("The new passwords do not match.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await jsonRequest("/api/v1/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+          ...(user.twoFactorEnabled ? { code: passwordCode } : {}),
+        }),
+      });
+      setPasswordChanged(true);
+    } catch (requestError) {
+      setPasswordError(
+        requestError instanceof Error
+          ? requestError.message
+          : "The password could not be changed.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="settings-page">
+      <Header authenticated onLogout={onLogout} />
+      <main className="settings-main">
+        <div className="settings-heading">
+          <div>
+            <p className="eyebrow">Your account</p>
+            <h1>Profile</h1>
+            <p>Manage your sign-in details and account identity.</p>
+          </div>
+          <a className="ghost-button" href="/">Back to sharing</a>
+        </div>
+
+        {passwordChanged ? (
+          <section className="settings-card profile-complete">
+            <span className="share-state-icon"><Check /></span>
+            <h2>Password changed</h2>
+            <p>For your security, all active sessions have been signed out. Sign in again with your new password.</p>
+            <a className="primary-button compact" href="/">Continue to sign in <ArrowRight /></a>
+          </section>
+        ) : (
+          <>
+            <section className="settings-card">
+              <div className="settings-card-heading">
+                <span><AtSign /></span>
+                <div><h2>Email address</h2><p>Your verified address is used to sign in and recover your account.</p></div>
+                <span className={`status-badge ${user.emailVerified ? "enabled" : ""}`}>{user.emailVerified ? "Verified" : "Unverified"}</span>
+              </div>
+              <div className="profile-current-value"><small>Current address</small><strong>{user.email}</strong></div>
+              {emailError && <p className="settings-alert error">{emailError}</p>}
+              {emailMessage && <p className="settings-alert success">{emailMessage}</p>}
+              <form className="profile-form" onSubmit={requestEmailChange}>
+                <label><span>New email address</span><input type="email" autoComplete="email" maxLength={254} required value={newEmail} onChange={(event) => setNewEmail(event.target.value)} /></label>
+                <label><span>Confirm with your password</span><input type="password" autoComplete="current-password" required value={emailPassword} onChange={(event) => setEmailPassword(event.target.value)} /></label>
+                {user.twoFactorEnabled && <label><span>Authenticator or recovery code</span><input type="text" autoComplete="one-time-code" required value={emailCode} onChange={(event) => setEmailCode(event.target.value)} /></label>}
+                <p className="profile-form-note">We’ll email a one-time confirmation link. Your address changes only after you open it.</p>
+                <button className="primary-button compact" disabled={busy}>{busy ? "Sending…" : "Send confirmation link"} <ArrowRight /></button>
+              </form>
+            </section>
+
+            <section className="settings-card">
+              <div className="settings-card-heading">
+                <span><LockKeyhole /></span>
+                <div><h2>Password</h2><p>Choose a new password of at least 12 characters.</p></div>
+              </div>
+              {passwordError && <p className="settings-alert error">{passwordError}</p>}
+              <form className="profile-form" onSubmit={changePassword}>
+                <label><span>Current password</span><input type="password" autoComplete="current-password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>
+                <label><span>New password</span><input type="password" autoComplete="new-password" minLength={12} maxLength={256} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label>
+                <label><span>Confirm new password</span><input type="password" autoComplete="new-password" minLength={12} maxLength={256} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
+                {user.twoFactorEnabled && <label><span>Authenticator or recovery code</span><input type="text" autoComplete="one-time-code" required value={passwordCode} onChange={(event) => setPasswordCode(event.target.value)} /></label>}
+                <p className="profile-form-note">Changing your password signs out every active session, including this one.</p>
+                <button className="primary-button compact" disabled={busy}>{busy ? "Updating…" : "Change password"} <ArrowRight /></button>
+              </form>
+            </section>
+
+            <section className="settings-card">
+              <div className="settings-card-heading">
+                <span><Settings /></span>
+                <div><h2>Account security & preferences</h2><p>Manage two-factor authentication, active sessions, storage, and appearance.</p></div>
+              </div>
+              <a className="ghost-button profile-settings-link" href="/settings">Open account settings <ArrowRight /></a>
+            </section>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function ConfirmEmailChangePage() {
+  const token = new URLSearchParams(window.location.search).get("token") ?? "";
+  const [state, setState] = useState<"ready" | "confirming" | "done" | "error">(token ? "ready" : "error");
+  const [error, setError] = useState(token ? "" : "The confirmation link is missing its token.");
+
+  async function confirmChange() {
+    setState("confirming");
+    setError("");
+    try {
+      await jsonRequest("/api/v1/auth/confirm-email-change", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      });
+      setState("done");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Email change could not be confirmed.");
+      setState("error");
+    }
+  }
+
+  return (
+    <AuthLayout eyebrow="Account security" title="Confirm your email address." description="">
+      <div className="auth-form profile-confirm-state">
+        {state === "ready" ? <><p>Confirm that you want to use the new email address for your Veyra account. This will sign out your active sessions.</p><button className="primary-button compact" type="button" onClick={() => void confirmChange()}>Confirm email change <ArrowRight /></button></> : null}
+        {state === "confirming" ? <p>Confirming your email address…</p> : null}
+        {state === "done" ? <><span className="share-state-icon"><Check /></span><h2>Email address updated</h2><p>Your sessions were signed out. Sign in again with your new email address.</p><a className="primary-button compact" href="/">Continue to sign in <ArrowRight /></a></> : null}
+        {state === "error" ? <><span className="share-state-icon error-state"><X /></span><h2>Could not confirm email</h2><p>{error}</p><a className="primary-button compact" href="/">Return to Veyra</a></> : null}
+      </div>
+    </AuthLayout>
+  );
+}
+
 function AuthenticatedApp() {
   const [status, setStatus] = useState<AuthStatus | null>(null);
   const [error, setError] = useState("");
@@ -4099,6 +4281,7 @@ function AuthenticatedApp() {
     );
   }
   if (window.location.pathname === "/settings") return <SettingsPage status={status} onLogout={logout} onRefresh={refresh} />;
+  if (window.location.pathname === "/profile") return <ProfilePage status={status} onLogout={logout} />;
   if (window.location.pathname === "/shares") return <MySharesPage onLogout={logout} />;
   if (window.location.pathname === "/requests") return <UploadRequestsPage onLogout={logout} />;
   if (window.location.pathname === "/inbox") return <SubmissionsPage onLogout={logout} />;
@@ -4353,6 +4536,7 @@ function AppRoutes() {
   }
   if (window.location.pathname === "/reset-password") return <ResetPasswordPage />;
   if (window.location.pathname === "/verify-email") return <VerifyEmailPage />;
+  if (window.location.pathname === "/confirm-email-change") return <ConfirmEmailChangePage />;
   return <AuthenticatedApp />;
 }
 

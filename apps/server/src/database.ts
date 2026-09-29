@@ -343,6 +343,14 @@ export class VeyraDatabase {
         used_at INTEGER
       );
 
+      CREATE TABLE IF NOT EXISTS pending_email_changes (
+        token_hash TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        new_email TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS email_delivery_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -2401,6 +2409,81 @@ export class VeyraDatabase {
     }
   }
 
+  replacePendingEmailChange(
+    userId: string,
+    newEmail: string,
+    tokenHash: string,
+    expiresAt: number,
+  ): void {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.db
+        .prepare("DELETE FROM pending_email_changes WHERE user_id = ?")
+        .run(userId);
+      this.db
+        .prepare(
+          `INSERT INTO pending_email_changes
+            (token_hash, user_id, new_email, created_at, expires_at)
+           VALUES (?, ?, ?, ?, ?)`,
+        )
+        .run(tokenHash, userId, newEmail, Date.now(), expiresAt);
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
+  clearPendingEmailChange(userId: string): void {
+    this.db
+      .prepare("DELETE FROM pending_email_changes WHERE user_id = ?")
+      .run(userId);
+  }
+
+  consumePendingEmailChange(
+    tokenHash: string,
+    now = Date.now(),
+  ): { userId: string; email: string } | { conflict: true } | undefined {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const change = this.db
+        .prepare(
+          `SELECT user_id, new_email FROM pending_email_changes
+           WHERE token_hash = ? AND expires_at > ?`,
+        )
+        .get(tokenHash, now) as
+        | { user_id: string; new_email: string }
+        | undefined;
+      if (!change) {
+        this.db.exec("ROLLBACK");
+        return undefined;
+      }
+      const existingUser = this.db
+        .prepare("SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id != ?")
+        .get(change.new_email, change.user_id);
+      if (existingUser) {
+        this.db.exec("ROLLBACK");
+        return { conflict: true };
+      }
+      this.db
+        .prepare(
+          `UPDATE users SET email = ?, email_verified_at = ? WHERE id = ?`,
+        )
+        .run(change.new_email, now, change.user_id);
+      this.db
+        .prepare("DELETE FROM sessions WHERE user_id = ?")
+        .run(change.user_id);
+      this.db
+        .prepare("DELETE FROM pending_email_changes WHERE user_id = ?")
+        .run(change.user_id);
+      this.db.exec("COMMIT");
+      return { userId: change.user_id, email: change.new_email };
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
   setUserDisabled(userId: string, disabled: boolean): boolean {
     this.db.exec("BEGIN IMMEDIATE");
     try {
@@ -2425,6 +2508,9 @@ export class VeyraDatabase {
         .prepare("UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?")
         .run(hash, salt, userId);
       this.db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
+      this.db
+        .prepare("DELETE FROM pending_email_changes WHERE user_id = ?")
+        .run(userId);
       this.db.exec("COMMIT");
     } catch (error) {
       this.db.exec("ROLLBACK");
@@ -2602,6 +2688,9 @@ export class VeyraDatabase {
       .prepare(
         "DELETE FROM email_verification_tokens WHERE expires_at <= ? OR used_at IS NOT NULL",
       )
+      .run(now);
+    this.db
+      .prepare("DELETE FROM pending_email_changes WHERE expires_at <= ?")
       .run(now);
     this.db.prepare("DELETE FROM oidc_states WHERE expires_at <= ?").run(now);
     this.db

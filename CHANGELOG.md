@@ -5,6 +5,21 @@ All notable changes to Veyra are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.1] - 2026-09-29
+
+### Added
+
+- Added a signed-in Profile page for updating account email and password, with
+  direct access to personal security and preference settings
+- Added one-time email confirmation for account address changes
+
+### Security
+
+- Require the current password and, when enabled, a TOTP or recovery code for
+  account credential changes
+- Revoke active sessions after password or email changes and invalidate pending
+  email changes when a password is reset or changed
+
 ## [1.2.0] - 2026-09-11
 
 ### Added
@@ -113,6 +128,7 @@ and the project follows [Semantic Versioning](https://semver.org/).
 - Path normalization, opaque object keys, ZIP traversal prevention, CSP,
   rate limits, and privacy-preserving audit events
 
+[1.2.1]: https://github.com/Liionboy/veyra/releases/tag/v1.2.1
 [1.1.5]: https://github.com/Liionboy/veyra/releases/tag/v1.1.5
 [1.2.0]: https://github.com/Liionboy/veyra/releases/tag/v1.2.0
 [1.1.4]: https://github.com/Liionboy/veyra/releases/tag/v1.1.4
