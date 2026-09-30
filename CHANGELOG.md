@@ -5,6 +5,14 @@ All notable changes to Veyra are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.2] - 2026-09-30
+
+### Security
+
+- Upgrade Nodemailer to 10.0.13, which includes fixes for the reported
+  Dependabot advisories and subsequent security-related parser issues
+- Refresh vulnerable transitive `fast-uri` and `brace-expansion` dependencies
+
 ## [1.2.1] - 2026-09-29
 
 ### Added
@@ -129,6 +137,7 @@ and the project follows [Semantic Versioning](https://semver.org/).
   rate limits, and privacy-preserving audit events
 
 [1.2.1]: https://github.com/Liionboy/veyra/releases/tag/v1.2.1
+[1.2.2]: https://github.com/Liionboy/veyra/releases/tag/v1.2.2
 [1.1.5]: https://github.com/Liionboy/veyra/releases/tag/v1.1.5
 [1.2.0]: https://github.com/Liionboy/veyra/releases/tag/v1.2.0
 [1.1.4]: https://github.com/Liionboy/veyra/releases/tag/v1.1.4
