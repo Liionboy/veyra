@@ -5,6 +5,14 @@ All notable changes to Veyra are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.3] - 2026-10-01
+
+### Fixed
+
+- Make the Security navigation link reach the home page section from other
+  pages and scroll to it after the home page renders
+- Update Fastify to 5.12.5 to address the HTTP/2 trailer denial-of-service advisory
+
 ## [1.2.2] - 2026-09-30
 
 ### Security
@@ -138,6 +146,7 @@ and the project follows [Semantic Versioning](https://semver.org/).
 
 [1.2.1]: https://github.com/Liionboy/veyra/releases/tag/v1.2.1
 [1.2.2]: https://github.com/Liionboy/veyra/releases/tag/v1.2.2
+[1.2.3]: https://github.com/Liionboy/veyra/releases/tag/v1.2.3
 [1.1.5]: https://github.com/Liionboy/veyra/releases/tag/v1.1.5
 [1.2.0]: https://github.com/Liionboy/veyra/releases/tag/v1.2.0
 [1.1.4]: https://github.com/Liionboy/veyra/releases/tag/v1.1.4
