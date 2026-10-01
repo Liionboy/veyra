@@ -252,11 +252,14 @@ function Header({
   authenticated?: boolean;
   onLogout?: () => void;
 }) {
+  const securityHref =
+    window.location.pathname === "/" ? "#security" : "/#security";
+
   return (
     <header className="site-header">
       <Brand />
       <nav aria-label="Main navigation">
-        <a href="#security">Security</a>
+        <a href={securityHref}>Security</a>
         {authenticated && (
           <a className="shares-link" href="/shares">
             <Files /> My shares
@@ -1080,6 +1083,13 @@ function FeatureStrip() {
 
 function HomePage({ onLogout }: { onLogout: () => void }) {
   const branding = usePublicConfig();
+
+  useEffect(() => {
+    if (window.location.hash === "#security") {
+      document.getElementById("security")?.scrollIntoView();
+    }
+  }, []);
+
   return (
     <>
       <Header authenticated onLogout={onLogout} />
