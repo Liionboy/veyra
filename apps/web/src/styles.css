@@ -1746,6 +1746,98 @@ footer p {
   backdrop-filter: blur(10px);
 }
 
+.confirm-backdrop {
+  position: fixed;
+  z-index: 320;
+  inset: 0;
+  padding: 20px;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 0.62);
+  backdrop-filter: blur(8px);
+  animation: confirm-backdrop-in 150ms ease-out;
+}
+
+.confirm-dialog {
+  width: min(440px, 100%);
+  padding: 28px;
+  border: 1px solid rgb(var(--overlay-rgb) / 0.14);
+  border-radius: 20px;
+  color: var(--text-primary);
+  background:
+    radial-gradient(circle at 100% 0, rgb(var(--accent-danger-rgb) / 0.09), transparent 44%),
+    linear-gradient(145deg, rgb(var(--panel-start-rgb) / 0.98), rgb(var(--panel-end-rgb) / 0.98));
+  box-shadow: 0 28px 90px rgb(var(--shadow-rgb) / 0.42);
+  animation: confirm-dialog-in 170ms ease-out;
+}
+
+.confirm-dialog-icon {
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgb(var(--accent-danger-rgb) / 0.22);
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: var(--accent-danger-text);
+  background: rgb(var(--accent-danger-rgb) / 0.09);
+}
+
+.confirm-dialog-icon svg {
+  width: 20px;
+}
+
+.confirm-dialog h2 {
+  margin: 20px 0 8px;
+  color: var(--text-heading);
+  font-size: 20px;
+  letter-spacing: -0.025em;
+}
+
+.confirm-dialog > p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.confirm-dialog-actions {
+  margin-top: 26px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.confirm-dialog-actions > button {
+  min-height: 44px;
+  padding: 0 15px;
+  font-size: 12px;
+}
+
+.confirm-dialog-actions > .danger-button {
+  background: rgb(var(--accent-danger-rgb) / 0.12);
+}
+
+.confirm-dialog-actions > button:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.confirm-dialog-actions > button:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
+}
+
+@keyframes confirm-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes confirm-dialog-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .preview-dialog {
   width: min(1000px, 100%);
   max-height: calc(100vh - 48px);
