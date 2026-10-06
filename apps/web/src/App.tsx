@@ -50,6 +50,7 @@ import {
   type DragEvent,
   type FormEvent,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -1642,12 +1643,29 @@ function ShareManagerCard({
   );
   const [deliveryMessage, setDeliveryMessage] = useState("");
   const [showQr, setShowQr] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const deleteDialogId = useId();
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const [passwordAction, setPasswordAction] = useState<"keep" | "change" | "remove">("keep");
   const [newPassword, setNewPassword] = useState("");
   const expired = share.expiresAt !== null && new Date(share.expiresAt).getTime() <= Date.now();
   const limitReached =
     share.maxDownloads !== null && share.downloads >= share.maxDownloads;
   const active = share.status === "ready" && !expired && !limitReached;
+
+  useEffect(() => {
+    if (!showDeleteConfirm) return;
+    cancelDeleteRef.current?.focus();
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape" && !busy) {
+        setShowDeleteConfirm(false);
+        deleteButtonRef.current?.focus();
+      }
+    }
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [showDeleteConfirm, busy]);
 
   async function regenerate() {
     setBusy(true);
@@ -1695,11 +1713,11 @@ function ShareManagerCard({
   }
 
   async function remove() {
-    if (!window.confirm("Delete this share and all of its files permanently?")) return;
     setBusy(true);
     onError("");
     try {
       await jsonRequest(`/api/v1/me/shares/${share.id}`, { method: "DELETE" });
+      setShowDeleteConfirm(false);
       onReload();
     } catch (requestError) {
       onError(requestError instanceof Error ? requestError.message : "Share deletion failed.");
@@ -1837,9 +1855,57 @@ function ShareManagerCard({
           <label><span>Download limit</span><input type="number" min="1" max="1000000" value={maxDownloads} onChange={(event) => setMaxDownloads(event.target.value)} placeholder="Unlimited" /></label>
           <label><span>Password</span><select value={passwordAction} onChange={(event) => setPasswordAction(event.target.value as typeof passwordAction)}><option value="keep">Keep current setting</option><option value="change">Set new password</option><option value="remove">Remove password</option></select></label>
           {passwordAction === "change" && <label><span>New password</span><input type="password" minLength={8} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label>}
-          <div className="manage-actions wide"><button className="primary-button compact" disabled={busy}><Save /> Save changes</button><button className="danger-button" type="button" disabled={busy} onClick={remove}><Trash2 /> Delete share</button></div>
+          <div className="manage-actions wide"><button className="primary-button compact" disabled={busy}><Save /> Save changes</button><button ref={deleteButtonRef} className="danger-button" type="button" disabled={busy} onClick={() => setShowDeleteConfirm(true)}><Trash2 /> Delete share</button></div>
         </form>
       </details>
+      {showDeleteConfirm && (
+        <div
+          className="confirm-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !busy) {
+              setShowDeleteConfirm(false);
+              deleteButtonRef.current?.focus();
+            }
+          }}
+        >
+          <section
+            className="confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`${deleteDialogId}-title`}
+            aria-describedby={`${deleteDialogId}-description`}
+          >
+            <span className="confirm-dialog-icon"><Trash2 /></span>
+            <h2 id={`${deleteDialogId}-title`}>Delete this share?</h2>
+            <p id={`${deleteDialogId}-description`}>
+              “{displayTitle}” and all of its files will be permanently deleted. This can’t be undone.
+            </p>
+            <div className="confirm-dialog-actions">
+              <button
+                ref={cancelDeleteRef}
+                className="ghost-button"
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  deleteButtonRef.current?.focus();
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="danger-button"
+                type="button"
+                disabled={busy}
+                onClick={() => void remove()}
+              >
+                <Trash2 /> {busy ? "Deleting…" : "Delete share"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </article>
   );
 }

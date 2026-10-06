@@ -13,6 +13,18 @@ and the project follows [Semantic Versioning](https://semver.org/).
   pages and scroll to it after the home page renders
 - Update Fastify to 5.12.5 to address the HTTP/2 trailer denial-of-service advisory
 
+## [1.2.4] - 2026-10-06
+
+### Fixed
+
+- Replace the browser-native share deletion prompt with an accessible confirmation
+  dialog styled to match the selected Veyra theme
+
+### Security
+
+- Refresh vulnerable transitive dependencies, including multipart handling,
+  source-map parsing, and deep-copy utilities
+
 ## [1.2.2] - 2026-09-30
 
 ### Security
@@ -147,6 +159,7 @@ and the project follows [Semantic Versioning](https://semver.org/).
 [1.2.1]: https://github.com/Liionboy/veyra/releases/tag/v1.2.1
 [1.2.2]: https://github.com/Liionboy/veyra/releases/tag/v1.2.2
 [1.2.3]: https://github.com/Liionboy/veyra/releases/tag/v1.2.3
+[1.2.4]: https://github.com/Liionboy/veyra/releases/tag/v1.2.4
 [1.1.5]: https://github.com/Liionboy/veyra/releases/tag/v1.1.5
 [1.2.0]: https://github.com/Liionboy/veyra/releases/tag/v1.2.0
 [1.1.4]: https://github.com/Liionboy/veyra/releases/tag/v1.1.4
